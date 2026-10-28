@@ -4,31 +4,118 @@ import { profile, socials } from '../data/portfolio';
 
 import photo from '../assets/figma/photo.png';
 import statusDot from '../assets/figma/status-dot.svg';
+import smsTracking from '../assets/figma/sms-tracking.svg';
+import arrowLeft from '../assets/icons/arrow-left.svg';
 ---
 
 <!--
 	Floating profile pinned bottom-left. The card is always rendered; in its
 	resting state a clip-path reveals only the avatar, and hovering (or focusing
-	inside) unclips it so the card grows upward from the avatar.
+	inside) unclips it so the card grows upward from the avatar. While the message
+	form (or its sent confirmation) is showing, the card stays unclipped until it's closed.
 -->
 <aside class="profile" aria-label="About me">
 	<div class="profile-card" tabindex="0">
-		<ul class="profile-socials">
-			{
-				socials.map(({ label, href, icon }) => (
-					<li>
-						<a href={href} aria-label={label} target="_blank" rel="noopener noreferrer">
-							<img src={icon.src} width={icon.width} height={icon.height} alt="" />
-						</a>
-					</li>
-				))
-			}
-		</ul>
+		<div class="profile-top">
+			<div class="profile-actions">
+				<button class="profile-compose" type="button" aria-expanded="false" aria-controls="profile-form">
+					<img src={smsTracking.src} width="20" height="20" alt="" />
+					Write a message
+				</button>
+				<ul class="profile-socials">
+					{
+						socials.map(({ label, href, icon }) => (
+							<li>
+								<a href={href} aria-label={label} target="_blank" rel="noopener noreferrer">
+									<img src={icon.src} width={icon.width} height={icon.height} alt="" />
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+
+			<form
+				class="profile-form"
+				id="profile-form"
+				aria-labelledby="profile-form-title"
+				tabindex="-1"
+				novalidate
+				hidden
+			>
+				<div class="profile-form-header">
+					<button class="profile-back" type="button" aria-label="Back">
+						<img src={arrowLeft.src} width="20" height="20" alt="" />
+					</button>
+					<h2 class="profile-form-title" id="profile-form-title">Write a message</h2>
+				</div>
+				<div class="field">
+					<label for="message-name">Name</label>
+					<input
+						id="message-name"
+						name="name"
+						type="text"
+						placeholder="Jane Doe"
+						autocomplete="name"
+						spellcheck="false"
+						required
+					/>
+					<p class="field-error" id="message-name-error" hidden></p>
+				</div>
+				<div class="field">
+					<label for="message-email">Email</label>
+					<input
+						id="message-email"
+						name="email"
+						type="email"
+						placeholder="you@site.com"
+						autocomplete="email"
+						spellcheck="false"
+						autocapitalize="off"
+						required
+					/>
+					<p class="field-error" id="message-email-error" hidden></p>
+				</div>
+				<div class="field">
+					<label for="message-body">Message</label>
+					<textarea
+						id="message-body"
+						name="message"
+						rows="4"
+						placeholder="What are you building, and when do you need it?"
+						required></textarea>
+					<p class="field-error" id="message-body-error" hidden></p>
+				</div>
+				<!-- Honeypot: off-screen and out of the tab order, so only bots fill it in. -->
+				<div class="visually-hidden" aria-hidden="true">
+					<label>Company <input name="company" type="text" tabindex="-1" autocomplete="off" /></label>
+				</div>
+				<!-- Turnstile renders here, and only shows itself when Cloudflare wants an interaction. -->
+				<div class="profile-turnstile" hidden></div>
+				<button class="profile-send" type="submit" aria-keyshortcuts="Meta+Enter Control+Enter">
+					<span class="profile-send-label">Send message</span>
+					<kbd class="profile-shortcut" aria-hidden="true">⌘↵</kbd>
+				</button>
+				<p class="field-error profile-form-status" role="alert" hidden></p>
+			</form>
+
+			<div
+				class="profile-sent"
+				role="group"
+				aria-labelledby="profile-sent-title"
+				aria-describedby="profile-sent-text"
+				tabindex="-1"
+				hidden
+			>
+				<h2 class="profile-sent-title" id="profile-sent-title">Message sent</h2>
+				<p class="profile-sent-text" id="profile-sent-text"></p>
+				<button class="profile-done" type="button">Done</button>
+			</div>
+		</div>
 		<div class="profile-divider"></div>
 		<div class="profile-details">
 			<div class="profile-avatar">
 				<Image src={photo} alt="" width={44} densities={[1, 2, 3]} class="profile-photo" />
-				<img class="profile-status" src={statusDot.src} width={statusDot.width} height={statusDot.height} alt="" />
 			</div>
 			<div class="profile-identity">
 				<p class="profile-name">{profile.name}</p>
@@ -36,39 +123,298 @@ import statusDot from '../assets/figma/status-dot.svg';
 			</div>
 		</div>
 	</div>
+	<!-- Outside the card so the resting clip-path (a circle around the avatar) doesn't cut it. -->
+	<img class="profile-status" src={statusDot.src} width={statusDot.width} height={statusDot.height} alt="" />
 </aside>
 
+<script>
+	import { actions, isInputError } from 'astro:actions';
+	import { TURNSTILE_SITE_KEY } from 'astro:env/client';
+
+	interface Turnstile {
+		render(container: HTMLElement, options: Record<string, unknown>): string;
+		getResponse(widgetId: string): string | undefined;
+		reset(widgetId: string): void;
+	}
+
+	const root = document.querySelector<HTMLElement>('.profile')!;
+	const top = root.querySelector<HTMLElement>('.profile-top')!;
+	const actionsPanel = root.querySelector<HTMLElement>('.profile-actions')!;
+	const compose = root.querySelector<HTMLButtonElement>('.profile-compose')!;
+	const form = root.querySelector<HTMLFormElement>('.profile-form')!;
+	const back = root.querySelector<HTMLButtonElement>('.profile-back')!;
+	const send = root.querySelector<HTMLButtonElement>('.profile-send')!;
+	const sendLabel = root.querySelector<HTMLElement>('.profile-send-label')!;
+	const status = root.querySelector<HTMLElement>('.profile-form-status')!;
+	const turnstileBox = root.querySelector<HTMLElement>('.profile-turnstile')!;
+	const sent = root.querySelector<HTMLElement>('.profile-sent')!;
+	const sentText = root.querySelector<HTMLElement>('.profile-sent-text')!;
+	const done = root.querySelector<HTMLButtonElement>('.profile-done')!;
+	const panels = [actionsPanel, form, sent];
+
+	const fields = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('.field :is(input, textarea)')];
+	const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+	const touch = matchMedia('(pointer: coarse)');
+
+	if (!/Mac|iPhone|iPad/.test(navigator.platform)) {
+		root.querySelector('.profile-shortcut')!.textContent = 'Ctrl ↵';
+	}
+
+	const messages: Record<string, (field: HTMLInputElement | HTMLTextAreaElement) => string> = {
+		name: () => 'Enter your name so I know who’s writing',
+		email: (field) =>
+			field.validity.valueMissing ? 'Enter your email so I can reply' : 'Your email needs an @ and a domain, like you@site.com',
+		message: () => 'Write a message before sending',
+	};
+
+	let resize: Animation | undefined;
+
+	// Animates `.profile-top` between the heights of the panels as one swaps for another.
+	// A swap that interrupts another starts from the current height, but the running animation is
+	// cancelled before measuring, so the target is the new panel's real height.
+	function show(next: HTMLElement) {
+		const from = top.offsetHeight;
+		resize?.cancel();
+		root.toggleAttribute('data-composing', next !== actionsPanel);
+		for (const panel of panels) panel.hidden = panel !== next;
+		compose.setAttribute('aria-expanded', String(next === form));
+		if (reducedMotion.matches) return;
+
+		const to = top.offsetHeight;
+		const easing = 'cubic-bezier(0.23, 1, 0.32, 1)';
+		resize = top.animate({ height: [`${from}px`, `${to}px`] }, { duration: next === actionsPanel ? 200 : 280, easing });
+		next.animate(
+			{ opacity: [0, 1], filter: ['blur(4px)', 'blur(0px)'] },
+			{ duration: 200, delay: 60, easing: 'ease-out', fill: 'backwards' },
+		);
+	}
+
+	// On touch, focusing a field would throw the keyboard up unasked, so focus lands on the form
+	// itself. Elsewhere it goes to the first field still empty, which picks up a kept draft.
+	function openForm() {
+		show(form);
+		renderTurnstile();
+		const target = touch.matches ? form : (fields.find((field) => !field.value.trim()) ?? fields[0]);
+		target.focus({ preventScroll: true });
+	}
+
+	function close() {
+		show(actionsPanel);
+		compose.focus({ preventScroll: true });
+	}
+
+	function setFieldError(field: HTMLInputElement | HTMLTextAreaElement, message?: string) {
+		const error = form.querySelector<HTMLElement>(`#${field.id}-error`)!;
+		field.setAttribute('aria-invalid', String(Boolean(message)));
+		if (message) {
+			field.setAttribute('aria-describedby', error.id);
+			error.textContent = message;
+		} else {
+			field.removeAttribute('aria-describedby');
+		}
+		error.hidden = !message;
+	}
+
+	function validate(field: HTMLInputElement | HTMLTextAreaElement) {
+		const valid = field.checkValidity() && field.value.trim() !== '';
+		setFieldError(field, valid ? undefined : messages[field.name](field));
+		return valid;
+	}
+
+	function setStatus(message?: string) {
+		status.textContent = message ?? '';
+		status.hidden = !message;
+	}
+
+	// The spam check loads the first time the form opens, so the page itself ships no third-party script.
+	let turnstileLoad: Promise<Turnstile> | undefined;
+	let widgetId: string | undefined;
+
+	function renderTurnstile() {
+		turnstileLoad ??= new Promise((resolve, reject) => {
+			const script = document.createElement('script');
+			script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+			script.async = true;
+			script.onload = () => resolve((window as unknown as { turnstile: Turnstile }).turnstile);
+			script.onerror = reject;
+			document.head.append(script);
+		});
+		turnstileLoad
+			.then((turnstile) => {
+				widgetId ??= turnstile.render(turnstileBox, {
+					sitekey: TURNSTILE_SITE_KEY,
+					action: 'contact',
+					appearance: 'interaction-only',
+					// The card is narrower than the 300px normal widget.
+					size: 'compact',
+					// The widget lives in a closed shadow root, so CSS can't tell when it's showing.
+					'before-interactive-callback': () => (turnstileBox.hidden = false),
+					'after-interactive-callback': () => (turnstileBox.hidden = true),
+				});
+			})
+			.catch(() => {});
+	}
+
+	async function turnstileToken() {
+		const turnstile = await turnstileLoad?.catch(() => undefined);
+		return turnstile && widgetId ? turnstile.getResponse(widgetId) : undefined;
+	}
+
+	// Tokens are single-use, so every attempt that reached the server needs a fresh one.
+	async function resetTurnstile() {
+		const turnstile = await turnstileLoad?.catch(() => undefined);
+		if (turnstile && widgetId) turnstile.reset(widgetId);
+	}
+
+	let sending = false;
+
+	// aria-disabled rather than disabled, so the button keeps focus while the message is in flight.
+	function setSending(on: boolean) {
+		sending = on;
+		send.setAttribute('aria-disabled', String(on));
+		sendLabel.textContent = on ? 'Sending…' : 'Send message';
+	}
+
+	compose.addEventListener('click', openForm);
+	back.addEventListener('click', close);
+	done.addEventListener('click', close);
+
+	root.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape' && root.hasAttribute('data-composing')) close();
+	});
+
+	// Check a field once the visitor moves on from it, but not one they skipped past empty, and not
+	// when they're leaving through Back or the form is closing.
+	form.addEventListener('focusout', (event) => {
+		const field = event.target as HTMLInputElement | HTMLTextAreaElement;
+		if (!fields.includes(field) || form.hidden || event.relatedTarget === back) return;
+		if (field.value.trim()) validate(field);
+	});
+
+	// Once a field has shown an error, re-check it as the visitor fixes it.
+	form.addEventListener('input', (event) => {
+		const field = event.target as HTMLInputElement | HTMLTextAreaElement;
+		if (field.getAttribute('aria-invalid') === 'true') validate(field);
+	});
+
+	// Cmd/Ctrl+Enter sends from the message box, where plain Enter adds a line.
+	form.addEventListener('keydown', (event) => {
+		if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+			event.preventDefault();
+			form.requestSubmit();
+		}
+	});
+
+	form.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		if (sending) return;
+		setStatus();
+
+		const invalid = fields.filter((field) => !validate(field));
+		if (invalid.length) {
+			invalid[0].focus();
+			return;
+		}
+
+		if (!(await turnstileToken())) {
+			setStatus(
+				turnstileLoad
+					? 'Still checking you’re not a bot. Try again in a moment.'
+					: 'The spam check couldn’t load. If a content blocker is on, allow challenges.cloudflare.com.',
+			);
+			return;
+		}
+
+		setSending(true);
+		const formData = new FormData(form);
+		const result = await actions.sendMessage(formData).catch(() => undefined);
+		setSending(false);
+		resetTurnstile();
+
+		if (!result) {
+			setStatus('Your message didn’t send. Check your connection, then try again. It’s still here.');
+			return;
+		}
+		const { error } = result;
+		if (isInputError(error)) {
+			const rejected = fields.filter((field) => error.fields[field.name as keyof typeof error.fields]);
+			for (const field of rejected) setFieldError(field, messages[field.name](field));
+			if (rejected.length) rejected[0].focus();
+			else setStatus('The spam check didn’t finish. Try again.');
+			return;
+		}
+		if (error) {
+			setStatus(
+				error.code === 'FORBIDDEN'
+					? 'The spam check didn’t pass. Try again.'
+					: 'Your message didn’t send. It’s still here, so try again in a moment.',
+			);
+			return;
+		}
+
+		sentText.textContent = `Thanks, ${String(formData.get('name')).trim()}. I’ll reply to ${formData.get('email')} soon.`;
+		form.reset();
+		for (const field of fields) setFieldError(field);
+		show(sent);
+		sent.focus({ preventScroll: true });
+	});
+</script>
+
 <style>
+	/*
+	 * A filter rather than box-shadow, so the shadow follows the clip-path from avatar circle to card.
+	 * Blur runs at twice the offset to keep it diffuse. The resting stack is scaled to the 44px
+	 * avatar and lifts into the open one; both have three layers so the filter can interpolate.
+	 */
 	.profile {
+		/* Grace period before collapsing, so a cursor slipping just off the edge doesn't fold the card. */
+		--close-delay: 150ms;
+		--shadow-rest: drop-shadow(0 0.5px 0.5px rgb(0 0 0 / 0.04)) drop-shadow(0 1px 3px rgb(0 0 0 / 0.05))
+			drop-shadow(0 3px 6px rgb(0 0 0 / 0.03));
+		--shadow-open: drop-shadow(0 0.5px 0.5px rgb(0 0 0 / 0.04)) drop-shadow(0 4px 8px rgb(0 0 0 / 0.04))
+			drop-shadow(0 12px 24px rgb(0 0 0 / 0.05));
 		position: fixed;
 		left: 11px;
 		bottom: 11px;
 		z-index: 10;
-		filter: drop-shadow(0 16px 16px rgb(0 0 0 / 0.08)) drop-shadow(0 4px 6px rgb(0 0 0 / 0.06))
-			drop-shadow(0 1px 1px rgb(0 0 0 / 0.04));
+		filter: var(--shadow-rest);
+		transition: filter 200ms ease-out var(--close-delay);
+	}
+
+	.profile:has(.profile-card:hover, .profile-card:focus-within),
+	.profile[data-composing] {
+		filter: var(--shadow-open);
+		transition: filter 280ms var(--ease-out);
 	}
 
 	.profile-card {
 		/* Avatar box: 1px border + 12px padding from the card's bottom-left corner. */
 		--avatar-inset: 13px;
 		--avatar: 44px;
+		/*
+		 * Concentric with what sits in the corners: the avatar (22px radius) at the bottom and the
+		 * compose pill (20px) at the top, each 13px in. 22 + 13 = 35px.
+		 */
+		--radius: calc(var(--avatar) / 2 + var(--avatar-inset));
 		display: flex;
 		flex-direction: column;
-		width: 280px;
+		/* Keeps the 11px gutter on both sides on screens narrower than the card. */
+		width: min(320px, 100vw - 22px);
 		background: var(--color-surface);
 		border: 1px solid var(--color-hairline);
-		border-radius: 22px;
+		border-radius: var(--radius);
 		clip-path: inset(
 			calc(100% - var(--avatar-inset) - var(--avatar)) calc(100% - var(--avatar-inset) - var(--avatar))
 				var(--avatar-inset) var(--avatar-inset) round 22px
 		);
-		transition: clip-path 200ms ease-out;
+		transition: clip-path 200ms ease-out var(--close-delay);
 		outline: none;
 	}
 
 	.profile-card:hover,
-	.profile-card:focus-within {
-		clip-path: inset(0 0 0 0 round 22px);
+	.profile-card:focus-within,
+	.profile[data-composing] .profile-card {
+		clip-path: inset(0 0 0 0 round var(--radius));
 		transition: clip-path 280ms var(--ease-out);
 	}
 
@@ -77,30 +423,106 @@ import statusDot from '../assets/figma/status-dot.svg';
 		outline-offset: -2px;
 	}
 
-	.profile-socials,
-	.profile-divider {
+	/* Blurs as it fades, so the content resolves into focus rather than just appearing. */
+	.profile-top,
+	.profile-divider,
+	.profile-identity {
 		opacity: 0;
-		transition: opacity 150ms ease-out;
+		filter: blur(4px);
+		transition:
+			opacity 150ms ease-out var(--close-delay),
+			filter 150ms ease-out var(--close-delay);
 	}
 
-	.profile-card:hover :is(.profile-socials, .profile-divider),
-	.profile-card:focus-within :is(.profile-socials, .profile-divider) {
+	/* `none` rather than blur(0), so the open content isn't left on a filter layer. */
+	.profile-card:hover :is(.profile-top, .profile-divider, .profile-identity),
+	.profile-card:focus-within :is(.profile-top, .profile-divider, .profile-identity),
+	.profile[data-composing] :is(.profile-top, .profile-divider, .profile-identity) {
 		opacity: 1;
+		filter: none;
 		transition-duration: 250ms;
 		transition-delay: 60ms;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
+		.profile,
+		.profile:has(.profile-card:hover, .profile-card:focus-within),
+		.profile[data-composing],
 		.profile-card,
 		.profile-card:hover,
-		.profile-card:focus-within {
+		.profile-card:focus-within,
+		.profile[data-composing] .profile-card,
+		.profile-top,
+		.profile-divider,
+		.profile-identity,
+		.profile-card:hover :is(.profile-top, .profile-divider, .profile-identity),
+		.profile-card:focus-within :is(.profile-top, .profile-divider, .profile-identity),
+		.profile[data-composing] :is(.profile-top, .profile-divider, .profile-identity) {
 			transition: none;
 		}
 	}
 
+	/* Sits on the avatar's bottom-right: avatar offset (13px) + 30px in, 2px past its bottom edge. */
+	.profile-status {
+		position: absolute;
+		left: 43px;
+		bottom: 11px;
+		pointer-events: none;
+	}
+
+	.profile-top {
+		overflow: clip;
+		/* Room for focus rings, which would otherwise be cut by the clip during the height animation. */
+		overflow-clip-margin: 4px;
+	}
+
+	/*
+	 * The 24px social glyphs sit in 40px hover cells, so 8px of each cell is empty space.
+	 * The gap and bottom padding subtract it, keeping the visible spacing at the card's 12px.
+	 */
+	.profile-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		padding: 12px 12px 4px;
+	}
+
+	/* Pills, like the page's other buttons. */
+	.profile-compose,
+	.profile-send,
+	.profile-done {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		height: 40px;
+		border-radius: 999px;
+		font-size: 15px;
+		font-weight: 600;
+		white-space: nowrap;
+		transition:
+			background-color 150ms ease-out,
+			scale 120ms ease-out;
+	}
+
+	.profile-compose,
+	.profile-send,
+	.profile-done {
+		background: #000;
+		color: #fff;
+	}
+
+	.profile-compose {
+		/* 2px less on the icon side, matching the hero button. */
+		padding: 0 16px 0 14px;
+	}
+
+	:is(.profile-compose, .profile-send, .profile-done, .profile-back):active {
+		scale: 0.97;
+	}
+
 	.profile-socials {
 		display: flex;
-		padding: 12px;
 	}
 
 	.profile-socials li {
@@ -111,13 +533,245 @@ import statusDot from '../assets/figma/status-dot.svg';
 		display: grid;
 		place-items: center;
 		height: 40px;
-		border-radius: 10px;
+		border-radius: 999px;
 		transition: background-color 150ms ease-out;
 	}
 
+	/* 44px touch targets; the 2px gap and padding keep the glyphs 12px from their neighbors. */
+	@media (pointer: coarse) {
+		.profile-actions {
+			gap: 2px;
+			padding-bottom: 2px;
+		}
+
+		.profile-compose,
+		.profile-send,
+		.profile-done,
+		.profile-socials a {
+			height: 44px;
+		}
+	}
+
 	@media (hover: hover) {
-		.profile-socials a:hover {
+		:is(.profile-compose, .profile-send, .profile-done):not([aria-disabled='true']):hover {
+			background: #2e2e2e;
+		}
+
+		:is(.profile-socials a, .profile-back):hover {
 			background: rgb(46 46 46 / 0.06);
+		}
+	}
+
+	/* Focused only as a landing spot on touch, where a ring around the whole form would be noise. */
+	.profile-form {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding: 12px;
+		outline: none;
+	}
+
+	.profile-form-header {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	/* A circle: the icon-only form of the card's pill buttons. */
+	.profile-back {
+		position: relative;
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 32px;
+		height: 32px;
+		border-radius: 999px;
+		transition:
+			background-color 150ms ease-out,
+			scale 120ms ease-out;
+	}
+
+	/* Hit area out to 40px (44px on touch, below); nothing interactive sits within reach. */
+	.profile-back::before {
+		content: '';
+		position: absolute;
+		inset: -4px;
+	}
+
+	@media (pointer: coarse) {
+		.profile-back::before {
+			inset: -6px;
+		}
+	}
+
+	.profile-form-title {
+		font-size: 15px;
+		font-weight: 600;
+		line-height: 20px;
+	}
+
+	:is(.profile-actions, .profile-form, .profile-sent)[hidden] {
+		display: none;
+	}
+
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.field label {
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.field input,
+	.field textarea {
+		width: 100%;
+		/* 16px keeps iOS Safari from zooming the page on focus. */
+		font: inherit;
+		font-size: 16px;
+		color: var(--color-text);
+		background: rgb(46 46 46 / 0.04);
+		border: 1px solid transparent;
+		/* Concentric with the card: its radius minus the 13px the fields sit in. Pills, like the buttons. */
+		border-radius: calc(var(--radius) - var(--avatar-inset));
+		transition:
+			background-color 150ms ease-out,
+			border-color 150ms ease-out;
+	}
+
+	/* Firefox also fades placeholders with opacity; reset it so the token alone sets the tone. */
+	.field :is(input, textarea)::placeholder {
+		color: var(--color-text-subtle);
+		opacity: 1;
+	}
+
+	.field input {
+		height: 40px;
+		padding: 0 16px;
+	}
+
+	@media (pointer: coarse) {
+		.field input {
+			height: 44px;
+		}
+	}
+
+	.field textarea {
+		display: block;
+		padding: 10px 16px;
+		line-height: 1.4;
+		resize: none;
+		/* Grows with the message from its 4 rows to about 9, then scrolls. */
+		field-sizing: content;
+		min-height: 110px;
+		max-height: 220px;
+	}
+
+	@media (hover: hover) {
+		.field :is(input, textarea):hover {
+			border-color: var(--color-hairline);
+		}
+	}
+
+	.field :is(input, textarea):focus-visible {
+		background: var(--color-surface);
+		border-color: #4988c4;
+		outline: 3px solid rgb(73 136 196 / 0.2);
+		outline-offset: 0;
+	}
+
+	.field :is(input, textarea)[aria-invalid='true'] {
+		border-color: var(--color-error);
+	}
+
+	.field :is(input, textarea)[aria-invalid='true']:focus-visible {
+		outline-color: rgb(220 38 38 / 0.16);
+	}
+
+	.field-error {
+		display: flex;
+		gap: 6px;
+		font-size: 13px;
+		color: var(--color-error);
+		text-wrap: pretty;
+	}
+
+	.field-error::before {
+		content: '!';
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 14px;
+		height: 14px;
+		margin-top: 2px;
+		border-radius: 999px;
+		background: var(--color-error);
+		color: #fff;
+		font-size: 10px;
+		font-weight: 700;
+		line-height: 1;
+	}
+
+	.field-error[hidden] {
+		display: none;
+	}
+
+	.profile-send {
+		margin-top: 4px;
+	}
+
+	/* No press or hover while a message is in flight; the label says what's happening. */
+	.profile-send[aria-disabled='true'] {
+		cursor: progress;
+		scale: 1;
+	}
+
+	.profile-send[aria-disabled='true'] .profile-shortcut {
+		display: none;
+	}
+
+	/* Hidden, so it adds no gap, until Turnstile reports it needs an interaction. */
+	.profile-turnstile[hidden] {
+		display: none;
+	}
+
+	.profile-sent {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		padding: 12px;
+		outline: none;
+	}
+
+	.profile-sent-title {
+		font-size: 15px;
+		font-weight: 600;
+		line-height: 20px;
+	}
+
+	.profile-sent-text {
+		font-size: 15px;
+		color: var(--color-text-muted);
+		text-wrap: pretty;
+		overflow-wrap: anywhere;
+	}
+
+	.profile-done {
+		margin-top: 8px;
+	}
+
+	.profile-shortcut {
+		font: inherit;
+		font-weight: 500;
+		color: rgb(255 255 255 / 0.5);
+	}
+
+	@media (pointer: coarse) {
+		.profile-shortcut {
+			display: none;
 		}
 	}
 
@@ -134,7 +788,6 @@ import statusDot from '../assets/figma/status-dot.svg';
 	}
 
 	.profile-avatar {
-		position: relative;
 		flex-shrink: 0;
 		width: 44px;
 		height: 44px;
@@ -149,12 +802,10 @@ import statusDot from '../assets/figma/status-dot.svg';
 		outline-offset: -1px;
 	}
 
-	.profile-status {
-		position: absolute;
-		left: 30px;
-		top: 30px;
-	}
-
+	/*
+	 * 22 + 4 + 18 = 44px, the avatar's height. Any taller and the row grows, the centered
+	 * avatar rises off the --avatar-inset the resting clip-path and status dot are placed by.
+	 */
 	.profile-identity {
 		display: flex;
 		flex-direction: column;
@@ -165,10 +816,12 @@ import statusDot from '../assets/figma/status-dot.svg';
 	.profile-name {
 		font-size: 17px;
 		font-weight: 600;
+		line-height: 22px;
 	}
 
 	.profile-headline {
 		font-size: 15px;
+		line-height: 18px;
 		color: var(--color-text-muted);
 	}
 </style>
