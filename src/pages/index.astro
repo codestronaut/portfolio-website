@@ -149,11 +149,14 @@ import currentDot from '../assets/figma/dot.svg';
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 4px;
 		max-width: var(--content-width);
 		font-size: 28px;
 		font-weight: 600;
-		line-height: 39px;
+		/*
+		 * The spacing lives in the line height, not a gap between lines, so a line that wraps
+		 * on a narrow screen keeps the same rhythm as the breaks between lines.
+		 */
+		line-height: 43px;
 		text-align: center;
 		text-wrap: balance;
 	}
@@ -194,7 +197,12 @@ import currentDot from '../assets/figma/dot.svg';
 	@media (max-width: 640px) {
 		.hero-title {
 			font-size: 21px;
-			line-height: 30px;
+			line-height: 34px;
+		}
+
+		/* The 40px logos would make their row taller than a 34px line; let them overhang instead. */
+		.hero-logos {
+			margin-block: -3px;
 		}
 
 		.hero {
@@ -222,9 +230,10 @@ import currentDot from '../assets/figma/dot.svg';
 		scale: 0.97;
 	}
 
+	/* 2px less on the icon side: an icon's edge reads further out than text, so equal padding looks lopsided. */
 	.button--dark {
 		gap: 8px;
-		padding: 14px 16px;
+		padding: 14px 16px 14px 14px;
 		background: #000;
 		color: #fff;
 	}
