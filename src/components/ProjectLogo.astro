@@ -1,0 +1,67 @@
+---
+import { Image } from 'astro:assets';
+import type { ProjectId } from '../data/portfolio';
+
+import tribelLogo from '../assets/figma/tribel-logo.png';
+import hopprLogo from '../assets/figma/hoppr-logo.png';
+import paglyphLogo from '../assets/figma/paglyph-logo.png';
+
+type Size = 'inline' | 'card' | 'large';
+
+interface Props {
+	project: ProjectId;
+	size: Size;
+	class?: string;
+}
+
+const { project, size, class: className } = Astro.props;
+
+const logos = { tribel: tribelLogo, hoppr: hopprLogo, paglyph: paglyphLogo };
+const px = { inline: 40, card: 36, large: 125 }[size];
+---
+
+<span class:list={['logo', `logo--${size}`, className]} aria-hidden="true">
+	<Image src={logos[project]} alt="" width={px} densities={[1, 2, 3]} loading="eager" />
+</span>
+
+<style>
+	.logo {
+		position: relative;
+		display: block;
+		flex-shrink: 0;
+		overflow: hidden;
+		border-radius: 25.6%;
+	}
+
+	.logo img {
+		width: 100%;
+		height: 100%;
+	}
+
+	.logo--inline {
+		width: 40px;
+		height: 40px;
+		border-radius: 12px;
+		box-shadow: -4px 4px 10px rgb(0 0 0 / 0.1);
+	}
+
+	/* Inside stroke, drawn over the artwork like Figma does. */
+	.logo--inline::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border: 2px solid var(--color-bg);
+		border-radius: inherit;
+	}
+
+	.logo--card {
+		width: 36px;
+		height: 36px;
+	}
+
+	/* `--logo-size` lets the hero stage scale the large tiles with the phones. */
+	.logo--large {
+		width: var(--logo-size, 125px);
+		height: var(--logo-size, 125px);
+	}
+</style>

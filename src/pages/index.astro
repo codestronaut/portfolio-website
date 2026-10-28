@@ -1,11 +1,537 @@
 ---
-import Welcome from '../components/Welcome.astro';
+import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
+import HeroPhones from '../components/HeroPhones.astro';
+import ProjectLogo from '../components/ProjectLogo.astro';
+import Profile from '../components/Profile.astro';
+import Testimonials from '../components/Testimonials.astro';
+import { achievements, contact, experience, profile, tools } from '../data/portfolio';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import smsTracking from '../assets/figma/sms-tracking.svg';
+import arrowUpRight from '../assets/figma/arrow-up-right.svg';
+import arrowUp from '../assets/figma/arrow-up.svg';
+import flagIndonesia from '../assets/figma/flag-indonesia.svg';
+import currentDot from '../assets/figma/dot.svg';
 ---
 
 <Layout>
-	<Welcome />
+	<main id="top">
+		<section class="hero">
+			<div class="hero-intro">
+				<h1 class="hero-title">
+					<span class="hero-title-first">
+						<span>I design, build, and ship</span>
+						<span class="hero-logos" aria-hidden="true">
+							<ProjectLogo project="tribel" size="inline" class="hero-logo hero-logo--ccw" />
+							<ProjectLogo project="hoppr" size="inline" class="hero-logo hero-logo--cw" />
+							<ProjectLogo project="paglyph" size="inline" class="hero-logo hero-logo--ccw" />
+						</span>
+						<span class="hero-title-medium"><strong>mobile apps</strong>.</span>
+					</span>
+					<span class="hero-title-line">I move fast, while ensuring the highest level of craft,</span>
+					<span class="hero-title-line">attention to detail, and performance.</span>
+				</h1>
+				<a class="button button--dark" href="#contact">
+					<img src={smsTracking.src} width={smsTracking.width} height={smsTracking.height} alt="" />
+					Get in touch
+				</a>
+			</div>
+			<HeroPhones />
+		</section>
+
+		<div class="content">
+			<section class="achievements" aria-label="Achievements">
+				{
+					achievements.map(({ value, label }, i) => (
+						<>
+							{i > 0 && <div class="achievements-divider" />}
+							<div class="achievement">
+								<p class="achievement-value">{value}</p>
+								<p class="achievement-label">{label}</p>
+							</div>
+						</>
+					))
+				}
+			</section>
+
+			<section class="stack" aria-labelledby="experience-label">
+				<h2 class="section-label" id="experience-label">Experience</h2>
+				<ol class="experience">
+					{
+						experience.map(({ period, role, company, current }) => (
+							<li class="experience-row">
+								<p class="experience-period">
+									{current && (
+										<img
+											class="experience-current"
+											src={currentDot.src}
+											width={currentDot.width}
+											height={currentDot.height}
+											alt="Current:"
+										/>
+									)}
+									{period}
+								</p>
+								<p class="experience-role">{role}</p>
+								<p class="experience-company">{company}</p>
+							</li>
+						))
+					}
+				</ol>
+			</section>
+
+			<Testimonials />
+
+			<section class="stack" aria-labelledby="tools-label">
+				<h2 class="section-label" id="tools-label">Tools I use</h2>
+				<ul class="tools">
+					{
+						tools.map(({ name, icon, crop }) => (
+							<li class="tool">
+								<span class:list={['tool-icon', { 'tool-icon--crop': crop }]}>
+									<Image src={icon} alt="" width={32} densities={[1, 2, 3]} />
+								</span>
+								{name}
+							</li>
+						))
+					}
+				</ul>
+			</section>
+
+			<section class="stack" id="contact" aria-labelledby="cta-title">
+				<div class="cta">
+					<h2 class="cta-title" id="cta-title">Have something<br />worth building?</h2>
+					<a class="button button--light" href={`mailto:${contact.email}`}>
+						Say hello
+						<img src={arrowUpRight.src} width={arrowUpRight.width} height={arrowUpRight.height} alt="" />
+					</a>
+				</div>
+				<footer class="footer">
+					<p>© 2026 {profile.name}</p>
+					<p class="footer-built">
+						Built in Lombok
+						<img src={flagIndonesia.src} width={flagIndonesia.width} height={flagIndonesia.height} alt="Indonesia" />
+						for a global audience
+					</p>
+					<a class="footer-top" href="#top">
+						Back to top
+						<img src={arrowUp.src} width={arrowUp.width} height={arrowUp.height} alt="" />
+					</a>
+				</footer>
+			</section>
+		</div>
+	</main>
+
+	<Profile />
 </Layout>
+
+<style>
+	main {
+		padding: 64px var(--gutter);
+	}
+
+	/* Hero */
+
+	.hero {
+		display: flex;
+		flex-direction: column;
+		gap: 104px;
+	}
+
+	.hero-intro {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 32px;
+	}
+
+	.hero-title {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		max-width: var(--content-width);
+		font-size: 28px;
+		font-weight: 600;
+		line-height: 39px;
+		text-align: center;
+		text-wrap: balance;
+	}
+
+	.hero-title-first {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 0 8px;
+	}
+
+	.hero-title-medium {
+		font-weight: 500;
+	}
+
+	.hero-title-medium strong {
+		font-weight: 700;
+	}
+
+	.hero-logos {
+		display: flex;
+		align-items: center;
+	}
+
+	.hero-logo:not(:last-child) {
+		margin-right: -8px;
+	}
+
+	.hero-logo--ccw {
+		rotate: -2deg;
+	}
+
+	.hero-logo--cw {
+		rotate: 2deg;
+	}
+
+	@media (max-width: 640px) {
+		.hero-title {
+			font-size: 21px;
+			line-height: 30px;
+		}
+
+		.hero {
+			gap: 56px;
+		}
+	}
+
+	/* Buttons */
+
+	.button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 999px;
+		font-size: 17px;
+		font-weight: 600;
+		line-height: 24px;
+		white-space: nowrap;
+		transition:
+			background-color 150ms ease-out,
+			scale 120ms ease-out;
+	}
+
+	.button:active {
+		scale: 0.97;
+	}
+
+	.button--dark {
+		gap: 8px;
+		padding: 14px 16px;
+		background: #000;
+		color: #fff;
+	}
+
+	.button--light {
+		gap: 6px;
+		width: 240px;
+		height: 48px;
+		background: #fff;
+		color: var(--color-text);
+	}
+
+	@media (hover: hover) {
+		.button--dark:hover {
+			background: #2e2e2e;
+		}
+
+		.button--light:hover {
+			background: rgb(255 255 255 / 0.88);
+		}
+	}
+
+	/* Content column */
+
+	.content {
+		display: flex;
+		flex-direction: column;
+		gap: 96px;
+		max-width: var(--content-width);
+		margin: 128px auto 0;
+	}
+
+	.stack {
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+	}
+
+	@media (max-width: 640px) {
+		.content {
+			gap: 64px;
+			margin-top: 72px;
+		}
+	}
+
+	/* Achievements */
+
+	.achievements {
+		display: flex;
+		gap: 24px;
+	}
+
+	.achievement {
+		flex: 1 0 0;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.achievement-value {
+		font-size: 48px;
+		font-weight: 600;
+		line-height: 68px;
+		letter-spacing: -0.02em;
+	}
+
+	.achievement-label {
+		font-size: 20px;
+		color: var(--color-text-muted);
+	}
+
+	.achievements-divider {
+		flex-shrink: 0;
+		width: 1px;
+		background: var(--color-divider);
+	}
+
+	@media (max-width: 640px) {
+		.achievements {
+			gap: 16px;
+		}
+
+		.achievement-value {
+			font-size: 34px;
+			line-height: 48px;
+		}
+
+		.achievement-label {
+			font-size: 15px;
+		}
+	}
+
+	/* Experience */
+
+	.experience-row {
+		display: grid;
+		grid-template-columns: 248px 288px 1fr;
+		align-items: center;
+		padding-block: 16px;
+		border-top: 1px solid var(--color-divider);
+		font-size: 20px;
+	}
+
+	.experience-row:last-child {
+		border-bottom: 1px solid var(--color-divider);
+	}
+
+	.experience-period,
+	.experience-company {
+		color: var(--color-text-muted);
+	}
+
+	.experience-period {
+		position: relative;
+	}
+
+	.experience-current {
+		position: absolute;
+		left: -18px;
+		top: 11px;
+	}
+
+	.experience-role {
+		font-weight: 600;
+	}
+
+	.experience-company {
+		text-align: right;
+	}
+
+	@media (max-width: 640px) {
+		.experience-row {
+			grid-template-columns: 1fr auto;
+			grid-template-areas:
+				'role role'
+				'period company';
+			row-gap: 2px;
+			column-gap: 12px;
+			font-size: 17px;
+		}
+
+		.experience-role {
+			grid-area: role;
+		}
+
+		.experience-period {
+			grid-area: period;
+			font-size: 15px;
+		}
+
+		.experience-company {
+			grid-area: company;
+			font-size: 15px;
+		}
+
+		.experience-current {
+			left: -14px;
+			top: 7px;
+		}
+	}
+
+	/* Tools */
+
+	.tools {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 20px;
+	}
+
+	.tool {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 20px;
+		white-space: nowrap;
+	}
+
+	.tool-icon {
+		position: relative;
+		flex-shrink: 0;
+		width: 32px;
+		height: 32px;
+		overflow: hidden;
+		border-radius: 8px;
+	}
+
+	.tool-icon::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border: 1px solid var(--color-hairline);
+		border-radius: inherit;
+	}
+
+	.tool-icon img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.tool-icon--crop img {
+		width: 106.67%;
+		height: 106.67%;
+		margin: -3.33%;
+	}
+
+	@media (max-width: 640px) {
+		.tools {
+			gap: 14px 18px;
+		}
+
+		.tool {
+			font-size: 17px;
+		}
+	}
+
+	/* CTA + footer */
+
+	.cta {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 24px;
+		height: 320px;
+		padding: 32px;
+		border-radius: 20px;
+		overflow: hidden;
+		background: radial-gradient(
+			93% 105.16% at 26.11% 13.59%,
+			#4988c4 0%,
+			#7ab2d3 50%,
+			#a9cce3 75%,
+			#d8e6f3 100%
+		);
+	}
+
+	.cta-title {
+		font-size: 48px;
+		font-weight: 500;
+		line-height: 1.05;
+		letter-spacing: -0.02em;
+		color: #fff;
+	}
+
+	@media (max-width: 640px) {
+		.cta {
+			flex-direction: column;
+			align-items: stretch;
+			justify-content: flex-end;
+			height: 300px;
+			padding: 24px;
+		}
+
+		.cta-title {
+			font-size: 36px;
+		}
+
+		.button--light {
+			width: 100%;
+		}
+	}
+
+	.footer {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
+		gap: 16px;
+		font-size: 15px;
+		color: var(--color-text-subtle);
+	}
+
+	.footer-built {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.footer-top {
+		display: flex;
+		align-items: center;
+		justify-self: end;
+		gap: 4px;
+		color: var(--color-text-muted);
+		transition: color 150ms ease-out;
+	}
+
+	@media (hover: hover) {
+		.footer-top:hover {
+			color: var(--color-text);
+		}
+	}
+
+	@media (max-width: 640px) {
+		.footer {
+			grid-template-columns: 1fr;
+			justify-items: center;
+			gap: 8px;
+			text-align: center;
+		}
+
+		.footer-built {
+			order: -1;
+		}
+
+		.footer-top {
+			justify-self: center;
+		}
+	}
+</style>

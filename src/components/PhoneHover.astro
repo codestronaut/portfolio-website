@@ -1,0 +1,167 @@
+---
+import ProjectLogo from './ProjectLogo.astro';
+import { projects, type ProjectId } from '../data/portfolio';
+
+interface Props {
+	project: ProjectId;
+	/** Hotspot position inside the hero stage, in design units. */
+	x: number;
+	y: number;
+	/** Card offset from the hotspot's top-left corner, in design units. */
+	cardX: number;
+	cardY: number;
+}
+
+const { project, x, y, cardX, cardY } = Astro.props;
+const { name, kind, description } = projects[project];
+const cardId = `phone-card-${project}`;
+---
+
+<div
+	class="hotspot"
+	tabindex="0"
+	aria-label={name}
+	aria-describedby={cardId}
+	style={`--x: ${x}; --y: ${y}; --card-x: ${cardX}; --card-y: ${cardY}`}
+	data-side={cardX < 0 ? 'left' : 'right'}
+>
+	<div class="card" id={cardId} role="tooltip">
+		<div class="card-header">
+			<ProjectLogo project={project} size="card" />
+			<p class="card-name">{name}</p>
+			<span class:list={['card-tag', `card-tag--${kind.toLowerCase()}`]}>{kind}</span>
+		</div>
+		<p class="card-description">{description}</p>
+	</div>
+</div>
+
+<style>
+	.hotspot {
+		position: absolute;
+		left: calc(var(--x) * var(--u));
+		top: calc(var(--y) * var(--u));
+		width: calc(170 * var(--u));
+		height: calc(300 * var(--u));
+		border-radius: calc(40 * var(--u));
+		z-index: 1;
+	}
+
+	.hotspot:focus-visible {
+		outline-offset: 0;
+	}
+
+	.hotspot:hover,
+	.hotspot:focus-visible {
+		z-index: 2;
+	}
+
+	.card {
+		position: absolute;
+		left: calc(var(--card-x) * var(--u));
+		top: calc(var(--card-y) * var(--u));
+		width: 280px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding: 16px;
+		background: var(--color-surface);
+		border: 1px solid var(--color-hairline);
+		border-radius: 20px;
+		box-shadow: var(--shadow-float);
+		pointer-events: none;
+		opacity: 0;
+		translate: var(--enter-x, 0) 0;
+		scale: 0.97;
+		transform-origin: var(--origin, left center);
+		transition:
+			opacity 150ms ease-out,
+			translate 150ms ease-out,
+			scale 150ms ease-out;
+	}
+
+	.hotspot[data-side='right'] .card {
+		--enter-x: -6px;
+		--origin: left center;
+	}
+
+	.hotspot[data-side='left'] .card {
+		--enter-x: 6px;
+		--origin: right center;
+	}
+
+	.hotspot:focus-visible .card {
+		opacity: 1;
+		translate: 0 0;
+		scale: 1;
+		transition-duration: 220ms;
+		transition-timing-function: var(--ease-out);
+	}
+
+	@media (hover: hover) {
+		.hotspot:hover .card {
+			opacity: 1;
+			translate: 0 0;
+			scale: 1;
+			transition-duration: 220ms;
+			transition-timing-function: var(--ease-out);
+		}
+	}
+
+	/* Below this width the side cards would leave the viewport, so they sit over the phone instead. */
+	@media (max-width: 1399px) {
+		.card {
+			left: 50%;
+			top: 45%;
+			margin-left: -140px;
+			transform-origin: center top;
+		}
+
+		.hotspot[data-side] .card {
+			--enter-x: 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.card {
+			translate: none !important;
+			scale: none !important;
+		}
+	}
+
+	.card-header {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.card-name {
+		font-size: 17px;
+		font-weight: 600;
+		white-space: nowrap;
+	}
+
+	.card-tag {
+		padding: 3px 8px;
+		border-radius: 999px;
+		font-size: 13px;
+		font-weight: 500;
+		line-height: 18px;
+		white-space: nowrap;
+	}
+
+	.card-tag--personal {
+		color: #6d28d9;
+		background: rgb(109 40 217 / 0.1);
+	}
+
+	.card-tag--client {
+		color: #c2410c;
+		background: rgb(194 65 12 / 0.1);
+	}
+
+	.card-description {
+		font-size: 15px;
+		line-height: 1.4;
+		color: var(--color-text-muted);
+	}
+</style>
