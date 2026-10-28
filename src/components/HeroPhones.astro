@@ -6,40 +6,43 @@ import { projects } from '../data/portfolio';
 
 // Positions in design units on the 896 × 680 stage. Paint order matches Figma:
 // each logo sits behind its phone, and later groups sit in front of earlier ones.
+// Each hotspot lives in its group, so hit areas stack in that same order and the
+// frontmost phone wins where they overlap.
 const groups = [
-	{ project: 'tribel', phone: [396, 178.06], logo: [710, 452] },
-	{ project: 'hoppr', phone: [253.49, 0], logo: [347, 44] },
-	{ project: 'paglyph', phone: [0, 177.7], logo: [46, 335] },
-] as const;
-
-const hotspots = [
-	{ project: 'paglyph', x: 112.1, y: 285.63, cardX: -354, cardY: 35 },
-	{ project: 'hoppr', x: 438.1, y: 92.63, cardX: 265, cardY: -72 },
-	{ project: 'tribel', x: 585.1, y: 278.63, cardX: 273, cardY: 42 },
+	// Each card sits 12 units outside its group, top-aligned with the logo. The card is
+	// 280px wide, and these side positions only apply at widths where a unit is 1px.
+	{ project: 'tribel', phone: [396, 178.06], logo: [710, 452], card: [847, 452] },
+	{ project: 'hoppr', phone: [253.49, 0], logo: [347, 44], card: [717, 44] },
+	{ project: 'paglyph', phone: [0, 177.7], logo: [46, 335], card: [-246, 335] },
 ] as const;
 ---
 
 <div class="hero-phones">
 	<div class="stage">
 		{
-			groups.map(({ project, phone, logo }) => (
-				<>
-					<div class="item" style={`--x: ${logo[0]}; --y: ${logo[1]}`}>
-						<ProjectLogo project={project} size="large" />
+			groups.map((group) => {
+				const { project, phone, logo } = group;
+				return (
+					<div class="group">
+						<div class="item" style={`--x: ${logo[0]}; --y: ${logo[1]}`}>
+							<ProjectLogo project={project} size="large" />
+						</div>
+						<Image
+							src={projects[project].mockup}
+							alt={`${projects[project].name} app on iPhone`}
+							width={501}
+							densities={[1, 2, 3]}
+							quality={90}
+							loading="eager"
+							fetchpriority="high"
+							class="item phone"
+							style={`--x: ${phone[0]}; --y: ${phone[1]}`}
+						/>
+						<PhoneHover {...group} />
 					</div>
-					<Image
-						src={projects[project].mockup}
-						alt={`${projects[project].name} app on iPhone`}
-						width={501}
-						densities={[1, 2]}
-						loading="eager"
-						class="item phone"
-						style={`--x: ${phone[0]}; --y: ${phone[1]}`}
-					/>
-				</>
-			))
+				);
+			})
 		}
-		{hotspots.map((spot) => <PhoneHover {...spot} />)}
 	</div>
 </div>
 
@@ -53,14 +56,115 @@ const hotspots = [
 	.stage {
 		--u: calc(100cqw / 896.21);
 		--logo-size: calc(125 * var(--u));
+		/*
+		 * Grayscale, then contrast toward mid-grey and a slight lift: black lands near 27% and
+		 * white near 93%, a touch under the page, so the active project's whites stand out.
+		 */
+		--dimmed: grayscale(1) contrast(0.55) brightness(1.2);
+		/*
+		 * The lift reacts with the snappy ease-out; colour fades on a gentler `ease`, since a
+		 * strong ease-out does most of a colour change in the first frames and reads as a snap.
+		 * Settling back waits out the card's 100ms grace and runs a little faster than going in.
+		 */
+		--item-react:
+			translate 200ms var(--ease-out),
+			filter 250ms ease;
+		--item-settle:
+			translate 150ms ease-out 100ms,
+			filter 200ms ease 100ms;
 		position: relative;
 		height: calc(680 * var(--u));
 	}
 
+	/* Groups only scope the hover states; `contents` keeps every item positioned against the stage. */
+	.group {
+		display: contents;
+	}
+
+	/* At rest the lift, the dimming and the card all leave together after the grace period. */
 	.item {
 		position: absolute;
 		left: calc(var(--x) * var(--u));
 		top: calc(var(--y) * var(--u));
+		transition: var(--item-settle);
+	}
+
+	/* Moving straight onto another project swaps everything without the grace period. */
+	.stage:has(:global(.hotspot):hover) .item {
+		transition-delay: 0s;
+	}
+
+	/*
+	 * While a project is active, it rises a little and the others turn grey and wash out toward
+	 * the page.
+	 * A filter keeps them opaque: with opacity, a dimmed phone in front (Paglyph over Hoppr)
+	 * would turn see-through and ghost the active phone behind it.
+	 * "Active" matches whatever opens the card: hover, keyboard focus, or a tap on touch.
+	 */
+	.group:has(:global(.hotspot:focus-visible), :global(.hotspot :focus-visible)) .item,
+	.stage:has(:global(.hotspot:focus-visible), :global(.hotspot :focus-visible))
+		.group:not(:has(:global(.hotspot:focus-visible), :global(.hotspot :focus-visible)))
+		.item {
+		transition: var(--item-react);
+	}
+
+	.group:has(:global(.hotspot:focus-visible), :global(.hotspot :focus-visible)) .item {
+		translate: 0 calc(-6 * var(--u));
+	}
+
+	.stage:has(:global(.hotspot:focus-visible), :global(.hotspot :focus-visible))
+		.group:not(:has(:global(.hotspot:focus-visible), :global(.hotspot :focus-visible)))
+		.item {
+		filter: var(--dimmed);
+	}
+
+	@media (hover: hover) {
+		.group:has(:global(.hotspot):hover) .item,
+		.stage:has(:global(.hotspot):hover) .group:not(:has(:global(.hotspot):hover)) .item {
+			transition: var(--item-react);
+		}
+
+		.group:has(:global(.hotspot):hover) .item {
+			translate: 0 calc(-6 * var(--u));
+		}
+
+		.stage:has(:global(.hotspot):hover) .group:not(:has(:global(.hotspot):hover)) .item {
+			filter: var(--dimmed);
+		}
+	}
+
+	@media (hover: none) {
+		.group:has(:global(.hotspot):focus-within) .item,
+		.stage:has(:global(.hotspot):focus-within) .group:not(:has(:global(.hotspot):focus-within)) .item {
+			transition: var(--item-react);
+		}
+
+		.group:has(:global(.hotspot):focus-within) .item {
+			translate: 0 calc(-6 * var(--u));
+		}
+
+		.stage:has(:global(.hotspot):focus-within) .group:not(:has(:global(.hotspot):focus-within)) .item {
+			filter: var(--dimmed);
+		}
+	}
+
+	/*
+	 * Promote the items as soon as the pointer is over the hero, before it reaches a phone,
+	 * so the grey fade runs on the compositor from its first frame instead of repainting the
+	 * large phone images every frame.
+	 */
+	@media (hover: hover) {
+		.hero-phones:hover .item {
+			will-change: filter;
+		}
+	}
+
+	/* The dimming is a state, not motion, so it stays; only the movement and fades go. */
+	@media (prefers-reduced-motion: reduce) {
+		.item {
+			translate: none !important;
+			transition-duration: 0s !important;
+		}
 	}
 
 	.phone {

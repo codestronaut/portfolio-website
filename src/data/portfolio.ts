@@ -1,8 +1,8 @@
 import type { ImageMetadata } from 'astro';
 
-import phonePaglyph from '../assets/figma/phone-paglyph.png';
-import phoneHoppr from '../assets/figma/phone-hoppr.png';
-import phoneTribel from '../assets/figma/phone-tribel.png';
+import phonePaglyph from '../assets/projects/phone-mockup-paglyph.png';
+import phoneHoppr from '../assets/projects/phone-mockup-hoppr.png';
+import phoneTribel from '../assets/projects/phone-mockup-tribel.png';
 
 import toolCursor from '../assets/figma/tool-cursor.jpg';
 import toolClaude from '../assets/figma/tool-claude.jpg';

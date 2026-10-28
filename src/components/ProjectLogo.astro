@@ -2,9 +2,9 @@
 import { Image } from 'astro:assets';
 import type { ProjectId } from '../data/portfolio';
 
-import tribelLogo from '../assets/figma/tribel-logo.png';
-import hopprLogo from '../assets/figma/hoppr-logo.png';
-import paglyphLogo from '../assets/figma/paglyph-logo.png';
+import tribelLogo from '../assets/projects/portfolio-tribel-logo.png';
+import hopprLogo from '../assets/projects/portfolio-hoppr-logo.png';
+import paglyphLogo from '../assets/projects/portfolio-paglyph-logo.png';
 
 type Size = 'inline' | 'card' | 'large';
 
@@ -14,44 +14,44 @@ interface Props {
 	class?: string;
 }
 
-const { project, size, class: className } = Astro.props;
+// `rest` carries the parent's scope attribute, so styles a page writes for `class` apply.
+const { project, size, class: className, ...rest } = Astro.props;
 
 const logos = { tribel: tribelLogo, hoppr: hopprLogo, paglyph: paglyphLogo };
 const px = { inline: 40, card: 36, large: 125 }[size];
 ---
 
-<span class:list={['logo', `logo--${size}`, className]} aria-hidden="true">
-	<Image src={logos[project]} alt="" width={px} densities={[1, 2, 3]} loading="eager" />
+<span class:list={['logo', `logo--${size}`, className]} aria-hidden="true" {...rest}>
+	<Image src={logos[project]} alt="" width={px} densities={[1, 2, 3]} quality={90} loading="eager" />
 </span>
 
 <style>
+	/*
+	 * Liquid glass, matching the app icon on paglyph.app, with the artwork filling the tile
+	 * edge to edge. The glass fill and drop shadow sit behind it, the specular rims on top.
+	 * The tile is a size container so every shadow scales from the reference's 96px icon.
+	 */
 	.logo {
+		--px: calc(100cqw / 96);
 		position: relative;
 		display: block;
 		flex-shrink: 0;
-		overflow: hidden;
+		container-type: inline-size;
 		border-radius: 25.6%;
 	}
 
+	/* Multiply lets white in the artwork take on the glass, so glyphs read as sitting on it. */
 	.logo img {
+		position: relative;
 		width: 100%;
 		height: 100%;
+		border-radius: inherit;
+		mix-blend-mode: multiply;
 	}
 
 	.logo--inline {
 		width: 40px;
 		height: 40px;
-		border-radius: 12px;
-		box-shadow: -4px 4px 10px rgb(0 0 0 / 0.1);
-	}
-
-	/* Inside stroke, drawn over the artwork like Figma does. */
-	.logo--inline::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		border: 2px solid var(--color-bg);
-		border-radius: inherit;
 	}
 
 	.logo--card {
@@ -63,5 +63,73 @@ const px = { inline: 40, card: 36, large: 125 }[size];
 	.logo--large {
 		width: var(--logo-size, 125px);
 		height: var(--logo-size, 125px);
+	}
+
+	.logo::before,
+	.logo::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		pointer-events: none;
+	}
+
+	.logo::before {
+		/*
+		 * The reference's translucent fill, laid over the surface the tile sits on (the page,
+		 * unless a parent sets `--glass-base`). Only that flat surface is ever behind these
+		 * tiles, so it looks the same, and the opaque base gives the artwork's multiply blend
+		 * something to mix with inside the tile's own stacking context.
+		 */
+		background:
+			linear-gradient(
+				145deg,
+				rgb(255 255 255 / 0.8),
+				rgb(255 255 255 / 0.38) 28%,
+				rgb(255 255 255 / 0.08) 52%,
+				rgb(255 255 255 / 0.04) 68%,
+				rgb(255 255 255 / 0.48)
+			),
+			linear-gradient(rgb(255 255 255 / 0.18)),
+			var(--glass-base, var(--color-bg));
+		box-shadow:
+			0 0 0 calc(1 * var(--px)) rgb(0 0 0 / 0.035),
+			0 calc(3 * var(--px)) calc(6 * var(--px)) calc(-3 * var(--px)) rgb(0 0 0 / 0.06),
+			0 calc(10 * var(--px)) calc(20 * var(--px)) calc(-10 * var(--px)) rgb(0 0 0 / 0.12),
+			0 calc(20 * var(--px)) calc(36 * var(--px)) calc(-18 * var(--px)) rgb(0 0 0 / 0.1);
+	}
+
+	.logo::after {
+		box-shadow:
+			inset 0 calc(1 * var(--px)) calc(1 * var(--px)) rgb(255 255 255 / 0.95),
+			inset calc(1 * var(--px)) 0 calc(1 * var(--px)) rgb(255 255 255 / 0.65),
+			inset 0 calc(-1 * var(--px)) calc(1 * var(--px)) rgb(255 255 255 / 0.8),
+			inset calc(-2 * var(--px)) calc(-4 * var(--px)) calc(8 * var(--px)) rgb(0 0 0 / 0.07),
+			inset calc(2 * var(--px)) calc(4 * var(--px)) calc(10 * var(--px)) rgb(255 255 255 / 0.5);
+	}
+
+	@media (prefers-contrast: more) {
+		.logo::before {
+			background: rgb(250 250 250);
+			box-shadow:
+				0 0 0 1px rgb(0 0 0 / 0.2),
+				0 4px 12px -6px rgb(0 0 0 / 0.12);
+		}
+
+		.logo::after {
+			box-shadow: none;
+		}
+	}
+
+	@media (forced-colors: active) {
+		.logo::before,
+		.logo::after {
+			box-shadow: none;
+		}
+
+		.logo::before {
+			background: Canvas;
+			border: 1px solid ButtonText;
+		}
 	}
 </style>
