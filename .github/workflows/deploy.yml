@@ -1,0 +1,37 @@
+name: CI/CD
+
+# Pull requests get a build check; pushes to main build and deploy to Cloudflare.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time, and a newer push cancels an older pull request run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Public: it ships in the page. The Worker's secrets live in Cloudflare, not here.
+      TURNSTILE_SITE_KEY: 0x4AAAAAAFpYPFhnFZjXnMNL
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      # Deploys from this job because the build points wrangler at its output through `.wrangler/deploy/`.
+      - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: bunx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
