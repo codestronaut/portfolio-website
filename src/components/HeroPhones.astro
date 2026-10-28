@@ -1,0 +1,71 @@
+---
+import { Image } from 'astro:assets';
+import PhoneHover from './PhoneHover.astro';
+import ProjectLogo from './ProjectLogo.astro';
+import { projects } from '../data/portfolio';
+
+// Positions in design units on the 896 × 680 stage. Paint order matches Figma:
+// each logo sits behind its phone, and later groups sit in front of earlier ones.
+const groups = [
+	{ project: 'tribel', phone: [396, 178.06], logo: [710, 452] },
+	{ project: 'hoppr', phone: [253.49, 0], logo: [347, 44] },
+	{ project: 'paglyph', phone: [0, 177.7], logo: [46, 335] },
+] as const;
+
+const hotspots = [
+	{ project: 'paglyph', x: 112.1, y: 285.63, cardX: -354, cardY: 35 },
+	{ project: 'hoppr', x: 438.1, y: 92.63, cardX: 265, cardY: -72 },
+	{ project: 'tribel', x: 585.1, y: 278.63, cardX: 273, cardY: 42 },
+] as const;
+---
+
+<div class="hero-phones">
+	<div class="stage">
+		{
+			groups.map(({ project, phone, logo }) => (
+				<>
+					<div class="item" style={`--x: ${logo[0]}; --y: ${logo[1]}`}>
+						<ProjectLogo project={project} size="large" />
+					</div>
+					<Image
+						src={projects[project].mockup}
+						alt={`${projects[project].name} app on iPhone`}
+						width={501}
+						densities={[1, 2]}
+						loading="eager"
+						class="item phone"
+						style={`--x: ${phone[0]}; --y: ${phone[1]}`}
+					/>
+				</>
+			))
+		}
+		{hotspots.map((spot) => <PhoneHover {...spot} />)}
+	</div>
+</div>
+
+<style>
+	.hero-phones {
+		container-type: inline-size;
+		width: min(896.21px, 100%);
+		margin-inline: auto;
+	}
+
+	.stage {
+		--u: calc(100cqw / 896.21);
+		--logo-size: calc(125 * var(--u));
+		position: relative;
+		height: calc(680 * var(--u));
+	}
+
+	.item {
+		position: absolute;
+		left: calc(var(--x) * var(--u));
+		top: calc(var(--y) * var(--u));
+	}
+
+	.phone {
+		width: calc(500.207 * var(--u));
+		height: calc(501.944 * var(--u));
+		pointer-events: none;
+	}
+</style>

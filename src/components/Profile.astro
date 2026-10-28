@@ -1,0 +1,174 @@
+---
+import { Image } from 'astro:assets';
+import { profile, socials } from '../data/portfolio';
+
+import photo from '../assets/figma/photo.png';
+import statusDot from '../assets/figma/status-dot.svg';
+---
+
+<!--
+	Floating profile pinned bottom-left. The card is always rendered; in its
+	resting state a clip-path reveals only the avatar, and hovering (or focusing
+	inside) unclips it so the card grows upward from the avatar.
+-->
+<aside class="profile" aria-label="About me">
+	<div class="profile-card" tabindex="0">
+		<ul class="profile-socials">
+			{
+				socials.map(({ label, href, icon }) => (
+					<li>
+						<a href={href} aria-label={label} target="_blank" rel="noopener noreferrer">
+							<img src={icon.src} width={icon.width} height={icon.height} alt="" />
+						</a>
+					</li>
+				))
+			}
+		</ul>
+		<div class="profile-divider"></div>
+		<div class="profile-details">
+			<div class="profile-avatar">
+				<Image src={photo} alt="" width={44} densities={[1, 2, 3]} class="profile-photo" />
+				<img class="profile-status" src={statusDot.src} width={statusDot.width} height={statusDot.height} alt="" />
+			</div>
+			<div class="profile-identity">
+				<p class="profile-name">{profile.name}</p>
+				<p class="profile-headline">{profile.headline}</p>
+			</div>
+		</div>
+	</div>
+</aside>
+
+<style>
+	.profile {
+		position: fixed;
+		left: 11px;
+		bottom: 11px;
+		z-index: 10;
+		filter: drop-shadow(0 16px 16px rgb(0 0 0 / 0.08)) drop-shadow(0 4px 6px rgb(0 0 0 / 0.06))
+			drop-shadow(0 1px 1px rgb(0 0 0 / 0.04));
+	}
+
+	.profile-card {
+		/* Avatar box: 1px border + 12px padding from the card's bottom-left corner. */
+		--avatar-inset: 13px;
+		--avatar: 44px;
+		display: flex;
+		flex-direction: column;
+		width: 280px;
+		background: var(--color-surface);
+		border: 1px solid var(--color-hairline);
+		border-radius: 22px;
+		clip-path: inset(
+			calc(100% - var(--avatar-inset) - var(--avatar)) calc(100% - var(--avatar-inset) - var(--avatar))
+				var(--avatar-inset) var(--avatar-inset) round 22px
+		);
+		transition: clip-path 200ms ease-out;
+		outline: none;
+	}
+
+	.profile-card:hover,
+	.profile-card:focus-within {
+		clip-path: inset(0 0 0 0 round 22px);
+		transition: clip-path 280ms var(--ease-out);
+	}
+
+	.profile-card:focus-visible {
+		outline: 2px solid #4988c4;
+		outline-offset: -2px;
+	}
+
+	.profile-socials,
+	.profile-divider {
+		opacity: 0;
+		transition: opacity 150ms ease-out;
+	}
+
+	.profile-card:hover :is(.profile-socials, .profile-divider),
+	.profile-card:focus-within :is(.profile-socials, .profile-divider) {
+		opacity: 1;
+		transition-duration: 250ms;
+		transition-delay: 60ms;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.profile-card,
+		.profile-card:hover,
+		.profile-card:focus-within {
+			transition: none;
+		}
+	}
+
+	.profile-socials {
+		display: flex;
+		padding: 12px;
+	}
+
+	.profile-socials li {
+		flex: 1 0 0;
+	}
+
+	.profile-socials a {
+		display: grid;
+		place-items: center;
+		height: 40px;
+		border-radius: 10px;
+		transition: background-color 150ms ease-out;
+	}
+
+	@media (hover: hover) {
+		.profile-socials a:hover {
+			background: rgb(46 46 46 / 0.06);
+		}
+	}
+
+	.profile-divider {
+		height: 1px;
+		background: var(--color-hairline);
+	}
+
+	.profile-details {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px;
+	}
+
+	.profile-avatar {
+		position: relative;
+		flex-shrink: 0;
+		width: 44px;
+		height: 44px;
+	}
+
+	.profile-photo {
+		width: 44px;
+		height: 44px;
+		border-radius: 999px;
+		object-fit: cover;
+		outline: 1px solid var(--color-hairline);
+		outline-offset: -1px;
+	}
+
+	.profile-status {
+		position: absolute;
+		left: 30px;
+		top: 30px;
+	}
+
+	.profile-identity {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		white-space: nowrap;
+	}
+
+	.profile-name {
+		font-size: 17px;
+		font-weight: 600;
+	}
+
+	.profile-headline {
+		font-size: 15px;
+		color: var(--color-text-muted);
+	}
+</style>

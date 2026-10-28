@@ -1,0 +1,163 @@
+---
+import { testimonials } from '../data/portfolio';
+
+import arrowLeft from '../assets/figma/arrow-square-left.svg';
+import arrowRight from '../assets/figma/arrow-square-right.svg';
+
+const total = testimonials.length;
+---
+
+<section class="testimonials" aria-labelledby="testimonials-label" data-testimonials>
+	<div class="testimonials-header">
+		<h2 class="section-label" id="testimonials-label">Kind words</h2>
+		<div class="testimonials-controls">
+			<p class="section-label" aria-live="polite"><span data-current>1</span> / {total}</p>
+			<div class="testimonials-buttons">
+				<button type="button" class="arrow" aria-label="Previous testimonial" data-prev disabled>
+					<img src={arrowLeft.src} width={arrowLeft.width} height={arrowLeft.height} alt="" />
+				</button>
+				<button type="button" class="arrow" aria-label="Next testimonial" data-next disabled={total < 2}>
+					<img src={arrowRight.src} width={arrowRight.width} height={arrowRight.height} alt="" />
+				</button>
+			</div>
+		</div>
+	</div>
+	{
+		testimonials.map(({ quote, name, title }, i) => (
+			<figure class="testimonial" hidden={i !== 0} data-slide>
+				<blockquote>“{quote}”</blockquote>
+				<figcaption>
+					<span class="testimonial-name">{name}</span>
+					<span class="testimonial-title">{title}</span>
+				</figcaption>
+			</figure>
+		))
+	}
+</section>
+
+<script>
+	for (const root of document.querySelectorAll<HTMLElement>('[data-testimonials]')) {
+		const slides = [...root.querySelectorAll<HTMLElement>('[data-slide]')];
+		const prev = root.querySelector<HTMLButtonElement>('[data-prev]')!;
+		const next = root.querySelector<HTMLButtonElement>('[data-next]')!;
+		const current = root.querySelector('[data-current]')!;
+		let index = 0;
+
+		const show = (i: number) => {
+			index = Math.max(0, Math.min(slides.length - 1, i));
+			slides.forEach((slide, n) => (slide.hidden = n !== index));
+			current.textContent = String(index + 1);
+			prev.disabled = index === 0;
+			next.disabled = index === slides.length - 1;
+		};
+
+		prev.addEventListener('click', () => show(index - 1));
+		next.addEventListener('click', () => show(index + 1));
+	}
+</script>
+
+<style>
+	.testimonials {
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+	}
+
+	.testimonials-header {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+
+	.testimonials-header h2 {
+		flex: 1;
+	}
+
+	.testimonials-controls {
+		display: flex;
+		align-items: center;
+		gap: 24px;
+	}
+
+	.testimonials-controls p {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.testimonials-buttons {
+		display: flex;
+	}
+
+	.arrow {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		transition:
+			opacity 150ms ease-out,
+			scale 120ms ease-out;
+	}
+
+	.arrow + .arrow {
+		margin-left: -4px;
+	}
+
+	.arrow img {
+		width: 32px;
+		height: 32px;
+	}
+
+	.arrow:disabled {
+		opacity: 0.3;
+		cursor: default;
+	}
+
+	.arrow:not(:disabled):active {
+		scale: 0.94;
+	}
+
+	.testimonial {
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+	}
+
+	.testimonial[hidden] {
+		display: none;
+	}
+
+	blockquote {
+		max-width: 680px;
+		font-size: 22px;
+		font-weight: 600;
+		text-wrap: pretty;
+	}
+
+	figcaption {
+		display: flex;
+		align-items: center;
+		font-size: 20px;
+	}
+
+	.testimonial-name {
+		font-weight: 600;
+	}
+
+	.testimonial-title {
+		color: var(--color-text-muted);
+	}
+
+	.testimonial-title::before {
+		content: '•';
+		margin-inline: 12px;
+	}
+
+	@media (max-width: 640px) {
+		blockquote {
+			font-size: 19px;
+		}
+
+		figcaption {
+			font-size: 17px;
+		}
+	}
+</style>
