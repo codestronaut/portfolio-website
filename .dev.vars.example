@@ -1,0 +1,15 @@
+# Copy to `.dev.vars` for local development. In production, set each one with
+# `bunx wrangler secret put <NAME>` instead; never commit real values.
+
+# Cloudflare's test secret, which accepts the test site key's tokens.
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA
+
+# From resend.com → API Keys.
+RESEND_API_KEY=re_replace_me
+
+# Where messages are delivered. With the default sender (onboarding@resend.dev),
+# this has to be the address on your Resend account.
+CONTACT_EMAIL=you@example.com
+
+# Optional, once you've verified a domain in Resend:
+# RESEND_FROM=Aditya Rohman <hello@yourdomain.com>
