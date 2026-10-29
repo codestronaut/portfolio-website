@@ -89,7 +89,7 @@ import currentDot from '../assets/figma/dot.svg';
 						tools.map(({ name, icon, crop }) => (
 							<li class="tool">
 								<span class:list={['tool-icon', { 'tool-icon--crop': crop }]}>
-									<Image src={icon} alt="" width={32} densities={[1, 2, 3]} />
+									<Image src={icon} alt="" width={28} densities={[1, 2, 3]} />
 								</span>
 								{name}
 							</li>
@@ -135,7 +135,7 @@ import currentDot from '../assets/figma/dot.svg';
 	.hero {
 		display: flex;
 		flex-direction: column;
-		gap: 104px;
+		gap: clamp(56px, 28.26px + 7.396vw, 104px);
 	}
 
 	.hero-intro {
@@ -150,13 +150,14 @@ import currentDot from '../assets/figma/dot.svg';
 		flex-direction: column;
 		align-items: center;
 		max-width: var(--content-width);
-		font-size: 28px;
+		font-size: var(--text-title);
 		font-weight: 600;
 		/*
 		 * The spacing lives in the line height, not a gap between lines, so a line that wraps
 		 * on a narrow screen keeps the same rhythm as the breaks between lines.
 		 */
-		line-height: 43px;
+		line-height: 1.55;
+		letter-spacing: var(--tracking-title);
 		text-align: center;
 		text-wrap: balance;
 	}
@@ -177,9 +178,11 @@ import currentDot from '../assets/figma/dot.svg';
 		font-weight: 700;
 	}
 
+	/* The 40px logos overhang a short line rather than making their row taller than the rest. */
 	.hero-logos {
 		display: flex;
 		align-items: center;
+		margin-block: -4px;
 	}
 
 	.hero-logo:not(:last-child) {
@@ -192,22 +195,6 @@ import currentDot from '../assets/figma/dot.svg';
 
 	.hero-logo--cw {
 		rotate: 2deg;
-	}
-
-	@media (max-width: 640px) {
-		.hero-title {
-			font-size: 21px;
-			line-height: 34px;
-		}
-
-		/* The 40px logos would make their row taller than a 34px line; let them overhang instead. */
-		.hero-logos {
-			margin-block: -3px;
-		}
-
-		.hero {
-			gap: 56px;
-		}
 	}
 
 	/* Buttons */
@@ -258,25 +245,20 @@ import currentDot from '../assets/figma/dot.svg';
 
 	/* Content column */
 
+	/* A container, so rows that run out of room stack on the column's width, not the viewport's. */
 	.content {
+		container: content / inline-size;
 		display: flex;
 		flex-direction: column;
-		gap: 96px;
+		gap: var(--space-section);
 		max-width: var(--content-width);
-		margin: 128px auto 0;
+		margin: clamp(72px, 39.64px + 8.629vw, 128px) auto 0;
 	}
 
 	.stack {
 		display: flex;
 		flex-direction: column;
 		gap: 24px;
-	}
-
-	@media (max-width: 640px) {
-		.content {
-			gap: 64px;
-			margin-top: 72px;
-		}
 	}
 
 	/* Achievements */
@@ -295,14 +277,14 @@ import currentDot from '../assets/figma/dot.svg';
 	}
 
 	.achievement-value {
-		font-size: 48px;
+		font-size: var(--text-display);
 		font-weight: 600;
-		line-height: 68px;
-		letter-spacing: -0.02em;
+		line-height: 1.2;
+		letter-spacing: var(--tracking-display);
 	}
 
 	.achievement-label {
-		font-size: 20px;
+		font-size: var(--text-body);
 		color: var(--color-text-muted);
 	}
 
@@ -317,25 +299,28 @@ import currentDot from '../assets/figma/dot.svg';
 			gap: 16px;
 		}
 
-		.achievement-value {
-			font-size: 34px;
-			line-height: 48px;
-		}
-
 		.achievement-label {
-			font-size: 15px;
+			font-size: var(--text-sm);
 		}
 	}
 
 	/* Experience */
 
+	/* Rows share the list's columns through subgrid, so every role and company lines up. */
+	.experience {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) auto;
+		column-gap: 24px;
+	}
+
 	.experience-row {
 		display: grid;
-		grid-template-columns: 248px 288px 1fr;
+		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
 		align-items: center;
 		padding-block: 16px;
 		border-top: 1px solid var(--color-divider);
-		font-size: 20px;
+		font-size: var(--text-body);
 	}
 
 	.experience-row:last-child {
@@ -354,7 +339,8 @@ import currentDot from '../assets/figma/dot.svg';
 	.experience-current {
 		position: absolute;
 		left: -18px;
-		top: 11px;
+		top: 0.5lh;
+		translate: 0 -50%;
 	}
 
 	.experience-role {
@@ -365,7 +351,11 @@ import currentDot from '../assets/figma/dot.svg';
 		text-align: right;
 	}
 
-	@media (max-width: 640px) {
+	@container content (max-width: 680px) {
+		.experience {
+			display: block;
+		}
+
 		.experience-row {
 			grid-template-columns: 1fr auto;
 			grid-template-areas:
@@ -373,7 +363,6 @@ import currentDot from '../assets/figma/dot.svg';
 				'period company';
 			row-gap: 2px;
 			column-gap: 12px;
-			font-size: 17px;
 		}
 
 		.experience-role {
@@ -382,17 +371,16 @@ import currentDot from '../assets/figma/dot.svg';
 
 		.experience-period {
 			grid-area: period;
-			font-size: 15px;
+			font-size: var(--text-sm);
 		}
 
 		.experience-company {
 			grid-area: company;
-			font-size: 15px;
+			font-size: var(--text-sm);
 		}
 
 		.experience-current {
 			left: -14px;
-			top: 7px;
 		}
 	}
 
@@ -408,17 +396,17 @@ import currentDot from '../assets/figma/dot.svg';
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		font-size: 20px;
+		font-size: var(--text-body);
 		white-space: nowrap;
 	}
 
 	.tool-icon {
 		position: relative;
 		flex-shrink: 0;
-		width: 32px;
-		height: 32px;
+		width: 28px;
+		height: 28px;
 		overflow: hidden;
-		border-radius: 8px;
+		border-radius: 7px;
 	}
 
 	.tool-icon::after {
@@ -445,10 +433,6 @@ import currentDot from '../assets/figma/dot.svg';
 		.tools {
 			gap: 14px 18px;
 		}
-
-		.tool {
-			font-size: 17px;
-		}
 	}
 
 	/* CTA + footer */
@@ -472,24 +456,20 @@ import currentDot from '../assets/figma/dot.svg';
 	}
 
 	.cta-title {
-		font-size: 48px;
+		font-size: var(--text-display);
 		font-weight: 500;
 		line-height: 1.05;
-		letter-spacing: -0.02em;
+		letter-spacing: var(--tracking-display);
 		color: #fff;
 	}
 
-	@media (max-width: 640px) {
+	@container content (max-width: 680px) {
 		.cta {
 			flex-direction: column;
 			align-items: stretch;
 			justify-content: flex-end;
 			height: 300px;
 			padding: 24px;
-		}
-
-		.cta-title {
-			font-size: 36px;
 		}
 
 		.button--light {
@@ -502,7 +482,7 @@ import currentDot from '../assets/figma/dot.svg';
 		grid-template-columns: 1fr auto 1fr;
 		align-items: center;
 		gap: 16px;
-		font-size: 15px;
+		font-size: var(--text-sm);
 		color: var(--color-text-subtle);
 	}
 
@@ -527,7 +507,7 @@ import currentDot from '../assets/figma/dot.svg';
 		}
 	}
 
-	@media (max-width: 640px) {
+	@container content (max-width: 680px) {
 		.footer {
 			grid-template-columns: 1fr;
 			justify-items: center;
