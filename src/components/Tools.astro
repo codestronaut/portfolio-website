@@ -218,17 +218,22 @@ const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAI
 	 */
 	.tool-preview {
 		--gap: 12px;
+		--width: 280px;
 		position: absolute;
 		z-index: 5;
-		left: calc(50% + var(--shift, 0px));
+		/*
+		 * Centred by taking off half its width here rather than with `translate`: the production
+		 * build's CSS minifier folds `translate` into the `transform` below and drops it, which left
+		 * the card hanging off to the right of its tool. Keep this rule to `transform` alone.
+		 */
+		left: calc(50% + var(--shift, 0px) - var(--width) / 2);
 		bottom: calc(100% + var(--gap));
-		width: 280px;
+		width: var(--width);
 		padding: 6px;
 		background: var(--color-surface);
 		border-radius: 16px;
 		box-shadow: var(--shadow-float);
 		pointer-events: none;
-		translate: -50% 0;
 		/* Scales from the tool it belongs to, even when the card is nudged off-centre. */
 		transform-origin: calc(50% - var(--shift, 0px)) bottom;
 		visibility: hidden;
