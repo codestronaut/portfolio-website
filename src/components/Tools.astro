@@ -1,0 +1,326 @@
+---
+import { Image } from 'astro:assets';
+import { tools } from '../data/portfolio';
+
+import arrowUpRight from '../assets/icons/arrow-up-right.svg';
+
+const domain = (href: string) => new URL(href).hostname.replace(/^www\./, '');
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+---
+
+<!--
+	Each tool links to its website. With a mouse or keyboard, a card above it previews the site with
+	its Open Graph image; on touch a tap just opens the site.
+-->
+<ul class="tools reveal" data-tools>
+	{
+		tools.map(({ name, icon, crop, href, preview }) => (
+			<li class="tool">
+				<a class="tool-link" href={href} target="_blank" rel="noopener noreferrer">
+					<span class="tool-lift">
+						<span class:list={['tool-icon', { 'tool-icon--crop': crop }]}>
+							<Image src={icon} alt="" width={28} densities={[1, 2, 3]} />
+						</span>
+						{name}
+					</span>
+				</a>
+				<div class="tool-preview" aria-hidden="true">
+					{/* Touch screens never show the card, so they get a blank pixel instead of the image. */}
+					<picture>
+						<source media="(hover: none)" srcset={BLANK} />
+						<Image class="tool-preview-image" src={preview} alt="" width={268} densities={[1, 2]} />
+					</picture>
+					<p class="tool-preview-caption">
+						<span class="tool-preview-name">{name}</span>
+						<span class="tool-preview-domain">{domain(href)}</span>
+						<img src={arrowUpRight.src} width="16" height="16" alt="" />
+					</p>
+				</div>
+			</li>
+		))
+	}
+</ul>
+
+<script>
+	// Hover intent, as with tooltips: the first preview waits a beat so sweeping across the row
+	// doesn't flash cards, and while one is open (or just closed) its neighbours swap in at once.
+	const OPEN_DELAY = 200;
+	const WARM = 300;
+	// Kept between the card and the viewport's edges.
+	const GUTTER = 16;
+
+	for (const list of document.querySelectorAll<HTMLElement>('[data-tools]')) {
+		const items = [...list.querySelectorAll<HTMLElement>('.tool')];
+		let openTimer: ReturnType<typeof setTimeout> | undefined;
+		let coolTimer: ReturnType<typeof setTimeout> | undefined;
+		let current: HTMLElement | undefined;
+
+		// Centred over its tool, nudged in from the viewport's edges. Hidden cards are placed too, so
+		// one hanging past the edge never widens the page.
+		const shift = (item: HTMLElement) => {
+			const card = item.querySelector<HTMLElement>('.tool-preview')!;
+			const link = item.querySelector('.tool-link')!.getBoundingClientRect();
+			const left = link.left + link.width / 2 - card.offsetWidth / 2;
+			const clamped = Math.min(Math.max(left, GUTTER), innerWidth - GUTTER - card.offsetWidth);
+			card.style.setProperty('--shift', `${clamped - left}px`);
+		};
+
+		// Above the tool, unless that would run off the top of the viewport.
+		const place = (item: HTMLElement) => {
+			shift(item);
+			const card = item.querySelector<HTMLElement>('.tool-preview')!;
+			const top = item.getBoundingClientRect().top;
+			item.dataset.placement = top - card.offsetHeight - 12 < GUTTER ? 'below' : 'above';
+		};
+
+		const close = (item: HTMLElement) => {
+			item.removeAttribute('data-open');
+			if (current === item) current = undefined;
+		};
+
+		const open = (item: HTMLElement, instant: boolean) => {
+			clearTimeout(openTimer);
+			if (current && current !== item) close(current);
+			place(item);
+			list.toggleAttribute('data-instant', instant);
+			item.setAttribute('data-open', '');
+			list.setAttribute('data-warm', '');
+			current = item;
+		};
+
+		for (const item of items) {
+			item.addEventListener('pointerenter', (event) => {
+				if (event.pointerType !== 'mouse') return;
+				clearTimeout(coolTimer);
+				clearTimeout(openTimer);
+				if (list.hasAttribute('data-warm')) open(item, true);
+				else openTimer = setTimeout(() => open(item, false), OPEN_DELAY);
+			});
+
+			item.addEventListener('pointerleave', (event) => {
+				if (event.pointerType !== 'mouse') return;
+				clearTimeout(openTimer);
+				close(item);
+				coolTimer = setTimeout(() => list.removeAttribute('data-warm'), WARM);
+			});
+
+			// Keyboard focus shows the card straight away; a click's focus doesn't count.
+			item.addEventListener('focusin', (event) => {
+				if ((event.target as Element).matches(':focus-visible')) open(item, true);
+			});
+			item.addEventListener('focusout', () => close(item));
+
+			// The site opens in a new tab, so the card shouldn't still be up on the way back.
+			item.addEventListener('click', () => close(item));
+		}
+
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape' && current) close(current);
+		});
+
+		new ResizeObserver(() => items.forEach(shift)).observe(document.documentElement);
+	}
+</script>
+
+<style>
+	/*
+	 * Raised so a preview flipped below the row stays over the section after it, which the scroll
+	 * reveal gives a layer of its own.
+	 */
+	.tools {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 20px;
+	}
+
+	.tool {
+		position: relative;
+	}
+
+	.tool-link {
+		display: flex;
+		border-radius: 8px;
+		font-size: var(--text-body);
+		white-space: nowrap;
+	}
+
+	/*
+	 * Lifts 2px on hover or keyboard focus. It's the link's contents that move, not the link, so the
+	 * hover area stays put and a cursor on its bottom edge doesn't flicker the lift on and off. It
+	 * settles back a little faster than it rises.
+	 */
+	.tool-lift {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		transition: translate 150ms ease-out;
+	}
+
+	.tool-link:focus-visible .tool-lift {
+		translate: 0 -2px;
+		transition: translate 200ms var(--ease-out);
+	}
+
+	/* Only where there's a pointer to hover with; on touch a tap's hover would leave it raised. */
+	@media (hover: hover) and (pointer: fine) {
+		.tool-link:hover .tool-lift {
+			translate: 0 -2px;
+			transition: translate 200ms var(--ease-out);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.tool-lift {
+			translate: none !important;
+		}
+	}
+
+	.tool-icon {
+		position: relative;
+		flex-shrink: 0;
+		width: 28px;
+		height: 28px;
+		overflow: hidden;
+		border-radius: 7px;
+	}
+
+	.tool-icon::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border: 1px solid var(--color-hairline);
+		border-radius: inherit;
+	}
+
+	.tool-icon img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.tool-icon--crop img {
+		width: 106.67%;
+		height: 106.67%;
+		margin: -3.33%;
+	}
+
+	@media (max-width: 640px) {
+		.tools {
+			gap: 14px 18px;
+		}
+	}
+
+	/*
+	 * Rises from its tool with a small lift and scale, and leaves faster than it came. It never takes
+	 * the pointer, so moving along the row goes straight from one tool to the next.
+	 */
+	.tool-preview {
+		--gap: 12px;
+		position: absolute;
+		z-index: 5;
+		left: calc(50% + var(--shift, 0px));
+		bottom: calc(100% + var(--gap));
+		width: 280px;
+		padding: 6px;
+		background: var(--color-surface);
+		border-radius: 16px;
+		box-shadow: var(--shadow-float);
+		pointer-events: none;
+		translate: -50% 0;
+		/* Scales from the tool it belongs to, even when the card is nudged off-centre. */
+		transform-origin: calc(50% - var(--shift, 0px)) bottom;
+		visibility: hidden;
+		opacity: 0;
+		transform: translateY(4px) scale(0.97);
+		transition:
+			opacity 120ms ease-in,
+			transform 120ms ease-in,
+			visibility 0s linear 120ms;
+	}
+
+	.tool[data-placement='below'] .tool-preview {
+		top: calc(100% + var(--gap));
+		bottom: auto;
+		transform-origin: calc(50% - var(--shift, 0px)) top;
+		transform: translateY(-4px) scale(0.97);
+	}
+
+	.tool[data-open] .tool-preview {
+		visibility: visible;
+		opacity: 1;
+		transform: none;
+		transition:
+			opacity 200ms var(--ease-out),
+			transform 200ms var(--ease-out),
+			visibility 0s;
+	}
+
+	/* Swapping between neighbours, or opening from the keyboard, happens at once. */
+	.tools[data-instant] .tool-preview {
+		transition: none;
+	}
+
+	/* Touch screens go straight to the site; the <picture> above keeps them from loading the images. */
+	@media (hover: none) {
+		.tool-preview {
+			display: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.tool-preview {
+			transform: none !important;
+			transition: none !important;
+		}
+	}
+
+	.tool-preview picture {
+		display: block;
+	}
+
+	/* The share-image ratio. Images that differ a little are cropped to fill it. */
+	.tool-preview-image {
+		display: block;
+		width: 100%;
+		height: auto;
+		aspect-ratio: 1200 / 630;
+		object-fit: cover;
+		/* Concentric with the card: its 16px radius minus the 6px padding. */
+		border-radius: 10px;
+		background: rgb(46 46 46 / 0.04);
+		outline: 1px solid var(--color-hairline);
+		outline-offset: -1px;
+	}
+
+	.tool-preview-caption {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 10px 6px 4px;
+		font-size: var(--text-sm);
+		white-space: nowrap;
+	}
+
+	.tool-preview-name {
+		font-weight: 600;
+	}
+
+	.tool-preview-domain {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		color: var(--color-text-muted);
+	}
+
+	.tool-preview-domain::before {
+		content: '·';
+		margin-right: 6px;
+	}
+
+	.tool-preview-caption img {
+		flex-shrink: 0;
+	}
+</style>

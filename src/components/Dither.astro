@@ -1,0 +1,255 @@
+---
+/*
+ * An ordered dither that appears around the cursor. Its parent positions it (it sits at z-index -1,
+ * under the parent's content) and decides its extent.
+ * - `gradient` redraws the CTA box's radial gradient as a dither of its own four blues; its shape and
+ *   stops below must match that box's background.
+ * - `ink` draws a soft grey spotlight on the plain page, a fine grain thinning out from the cursor.
+ */
+interface Props {
+	variant: 'gradient' | 'ink';
+}
+
+const { variant } = Astro.props;
+---
+
+<canvas class="dither" aria-hidden="true" data-dither={variant}></canvas>
+
+<script>
+	type Variant = 'gradient' | 'ink';
+
+	// In CSS pixels: the size of a dither cell, and how far from the cursor the dither reaches. The
+	// ink's cells are a little finer, so it reads as a texture on the page.
+	const CELL: Record<Variant, number> = { gradient: 4, ink: 3 };
+	const RADIUS: Record<Variant, number> = { gradient: 180, ink: 260 };
+	// How quickly the patch catches up with the cursor, and fades in and out; higher is snappier. The
+	// ink trails and fades a touch more gently.
+	const FOLLOW: Record<Variant, number> = { gradient: 14, ink: 11 };
+	const FADE: Record<Variant, number> = { gradient: 8, ink: 6 };
+
+	const VERTEX = `
+		attribute vec2 position;
+		void main() { gl_Position = vec4(position, 0.0, 1.0); }
+	`;
+
+	// Shared by both: the cell grid, the 8x8 Bayer threshold, and the cursor's distance and falloff.
+	const COMMON = `
+		precision mediump float;
+
+		uniform vec2 uSize;
+		uniform vec2 uPointer;
+		uniform float uTime;
+		uniform float uHover;
+		uniform float uCell;
+		uniform float uRadius;
+
+		float bayer2(vec2 a) { a = floor(a); return fract(a.x / 2.0 + a.y * a.y * 0.75); }
+		float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
+		float bayer8(vec2 a) { return bayer4(0.5 * a) * 0.25 + bayer2(a); }
+
+		// A slow ripple running out from the cursor, between -1 and 1.
+		float ripple(float d) { return sin(d / uCell * 0.35 - uTime * 2.5); }
+	`;
+
+	/*
+	 * Between each pair of the gradient's stops, a cell takes the nearer or farther colour by
+	 * comparing how far along it is with the threshold, which turns the smooth blend into an ordered
+	 * dither of its own four blues. The patch's edge goes through the same threshold (offset by half),
+	 * so it dissolves cell by cell instead of ending in a line, and the ripple shifts the gradient's
+	 * position so bands of the dither move outward.
+	 */
+	const GRADIENT = `${COMMON}
+		const vec3 C0 = vec3(0.286, 0.533, 0.769);
+		const vec3 C1 = vec3(0.478, 0.698, 0.827);
+		const vec3 C2 = vec3(0.663, 0.800, 0.890);
+		const vec3 C3 = vec3(0.847, 0.902, 0.953);
+
+		vec3 pick(vec3 a, vec3 b, float f, float threshold) { return f > threshold ? b : a; }
+
+		void main() {
+			vec2 frag = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y);
+			vec2 cell = floor(frag / uCell);
+			vec2 center = (cell + 0.5) * uCell;
+
+			float d = distance(center, uPointer);
+			float mask = (1.0 - smoothstep(0.0, uRadius, d)) * uHover;
+			float threshold = bayer8(cell);
+			if (mask <= fract(threshold + 0.5)) discard;
+
+			vec2 uv = center / uSize;
+			float t = length((uv - vec2(0.2611, 0.1359)) / vec2(0.93, 1.0516));
+			t += 0.05 * ripple(d) * mask;
+			t = clamp(t, 0.0, 1.0);
+
+			vec3 color = t < 0.5
+				? pick(C0, C1, t / 0.5, threshold)
+				: t < 0.75
+					? pick(C1, C2, (t - 0.5) / 0.25, threshold)
+					: pick(C2, C3, (t - 0.75) / 0.25, threshold);
+
+			gl_FragColor = vec4(color, 1.0);
+		}
+	`;
+
+	/*
+	 * A spotlight of the page's text colour: dense at the cursor, easing off on a smoothstep to nothing
+	 * at the edge, with slow ripples that swell and ease it in wide rings. Each cell is either inked or
+	 * not, which is what makes it a dither rather than a glow; it's translucent, so it tints the page
+	 * rather than sitting on it.
+	 */
+	const INK = `${COMMON}
+		const vec3 INK = vec3(0.180, 0.180, 0.180);
+		const float ALPHA = 0.18;
+
+		void main() {
+			vec2 frag = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y);
+			vec2 cell = floor(frag / uCell);
+			vec2 center = (cell + 0.5) * uCell;
+
+			float d = distance(center, uPointer);
+			float falloff = 1.0 - smoothstep(0.0, uRadius, d);
+			float swell = 0.85 + 0.15 * sin(d / uRadius * 14.0 - uTime * 1.8);
+			float density = falloff * uHover * 0.65 * swell;
+			if (density <= bayer8(cell)) discard;
+
+			gl_FragColor = vec4(INK * ALPHA, ALPHA);
+		}
+	`;
+
+	const pointerFine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+	const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	const setUp = (canvas: HTMLCanvasElement) => {
+		const variant = canvas.dataset.dither as Variant;
+		const gl = canvas.getContext('webgl', { antialias: false });
+		if (!gl) return;
+
+		const shader = (type: number, source: string) => {
+			const s = gl.createShader(type)!;
+			gl.shaderSource(s, source);
+			gl.compileShader(s);
+			return s;
+		};
+		const program = gl.createProgram()!;
+		gl.attachShader(program, shader(gl.VERTEX_SHADER, VERTEX));
+		gl.attachShader(program, shader(gl.FRAGMENT_SHADER, variant === 'ink' ? INK : GRADIENT));
+		gl.linkProgram(program);
+		gl.useProgram(program);
+
+		// One triangle that covers the whole canvas.
+		gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+		const position = gl.getAttribLocation(program, 'position');
+		gl.enableVertexAttribArray(position);
+		gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+
+		const uniform = (name: string) => gl.getUniformLocation(program, name);
+		const u = {
+			size: uniform('uSize'),
+			pointer: uniform('uPointer'),
+			time: uniform('uTime'),
+			hover: uniform('uHover'),
+			cell: uniform('uCell'),
+			radius: uniform('uRadius'),
+		};
+
+		let scale = 1;
+		const resize = () => {
+			scale = devicePixelRatio;
+			canvas.width = Math.round(canvas.clientWidth * scale);
+			canvas.height = Math.round(canvas.clientHeight * scale);
+			gl.viewport(0, 0, canvas.width, canvas.height);
+		};
+		resize();
+		new ResizeObserver(resize).observe(canvas);
+
+		const target = { x: 0, y: 0, hover: 0 };
+		const current = { x: 0, y: 0, hover: 0 };
+		let frame = 0;
+		let last = 0;
+
+		// Draws only while the cursor is over the canvas or the patch is still fading out.
+		const draw = (now: number) => {
+			const dt = Math.min((now - (last || now)) / 1000, 0.05);
+			last = now;
+			const follow = 1 - Math.exp(-FOLLOW[variant] * dt);
+			const fade = 1 - Math.exp(-FADE[variant] * dt);
+			current.x += (target.x - current.x) * follow;
+			current.y += (target.y - current.y) * follow;
+			current.hover += (target.hover - current.hover) * fade;
+
+			gl.clearColor(0, 0, 0, 0);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+			gl.uniform2f(u.size, canvas.width, canvas.height);
+			gl.uniform2f(u.pointer, current.x * scale, current.y * scale);
+			gl.uniform1f(u.time, now / 1000);
+			gl.uniform1f(u.hover, current.hover);
+			gl.uniform1f(u.cell, CELL[variant] * scale);
+			gl.uniform1f(u.radius, RADIUS[variant] * scale);
+			gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+			if (target.hover || current.hover > 0.002) frame = requestAnimationFrame(draw);
+			else {
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				frame = 0;
+				last = 0;
+			}
+		};
+
+		/*
+		 * The canvas never takes the pointer, so whether the cursor is over it is worked out from its
+		 * box. That also covers a canvas that reaches past its parent, as the hero's does, and keeps
+		 * the patch under the cursor while the page scrolls beneath a still mouse.
+		 */
+		const aim = (x: number, y: number) => {
+			const rect = canvas.getBoundingClientRect();
+			const inside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+			target.x = x - rect.left;
+			target.y = y - rect.top;
+			// Arriving starts the patch under the cursor rather than sweeping it in from where it last was.
+			if (inside && !target.hover && current.hover < 0.002) Object.assign(current, { x: target.x, y: target.y });
+			target.hover = inside ? 1 : 0;
+			if (inside || current.hover > 0.002) frame ||= requestAnimationFrame(draw);
+		};
+
+		return aim;
+	};
+
+	if (pointerFine && !reducedMotion) {
+		const aims = [...document.querySelectorAll<HTMLCanvasElement>('[data-dither]')].map(setUp).filter(Boolean) as ((
+			x: number,
+			y: number,
+		) => void)[];
+
+		if (aims.length) {
+			let last: { x: number; y: number } | undefined;
+			addEventListener('pointermove', (event) => {
+				if (event.pointerType !== 'mouse') return;
+				last = { x: event.clientX, y: event.clientY };
+				for (const aim of aims) aim(last.x, last.y);
+			});
+			addEventListener(
+				'scroll',
+				() => {
+					if (last) for (const aim of aims) aim(last.x, last.y);
+				},
+				{ passive: true },
+			);
+			document.documentElement.addEventListener('pointerleave', () => {
+				last = undefined;
+				for (const aim of aims) aim(-1e6, -1e6);
+			});
+		}
+	}
+</script>
+
+<style>
+	.dither {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+</style>

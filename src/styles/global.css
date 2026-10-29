@@ -31,7 +31,7 @@
 	 */
 	--text-sm: 15px;
 	--text-body: clamp(17px, 16.05px + 0.254vw, 18px);
-	--text-quote: clamp(19px, 17.27px + 0.462vw, 22px);
+	--text-quote: 20px;
 	--text-title: clamp(22px, 17.38px + 1.233vw, 30px);
 	--text-display: clamp(36px, 29.07px + 1.849vw, 48px);
 
@@ -123,6 +123,17 @@ button {
 	outline-offset: 2px;
 }
 
+/*
+ * Flags from Untitled UI's set (src/assets/flags, named by country code) are 3:2 and square-cornered;
+ * the rounding and hairline edge are added here so every flag matches.
+ */
+.flag {
+	flex-shrink: 0;
+	border-radius: 2px;
+	outline: 0.5px solid rgb(0 0 0 / 0.08);
+	outline-offset: -0.5px;
+}
+
 ::selection {
 	background: rgb(73 136 196 / 0.2);
 }
@@ -141,4 +152,29 @@ button {
 	font-size: var(--text-body);
 	font-weight: 500;
 	color: var(--color-text-muted);
+}
+
+/*
+ * Section labels, and anything marked `.reveal`, rise 8px and sharpen in over the bottom fifth of
+ * the screen as they scroll up into it. It's tied 1:1 to the scroll, so it reverses on the way back
+ * and nothing moves on its own. Each element runs on its own position, so rows arrive one after
+ * another. `.reveal` goes on an element that doesn't already animate opacity, translate or filter.
+ */
+@supports (animation-timeline: view()) {
+	@media (prefers-reduced-motion: no-preference) {
+		.section-label,
+		.reveal {
+			animation: reveal linear both;
+			animation-timeline: view();
+			animation-range: entry 0% cover 20%;
+		}
+	}
+}
+
+@keyframes reveal {
+	from {
+		opacity: 0;
+		filter: blur(2px);
+		translate: 0 8px;
+	}
 }
