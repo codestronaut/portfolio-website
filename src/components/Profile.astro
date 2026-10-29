@@ -1,11 +1,13 @@
 ---
 import { Image } from 'astro:assets';
-import { profile, socials } from '../data/portfolio';
+import { contact, profile, socials } from '../data/portfolio';
 
-import photo from '../assets/figma/photo.png';
-import statusDot from '../assets/figma/status-dot.svg';
-import smsTracking from '../assets/figma/sms-tracking.svg';
+import photo from '../assets/misc/photo.png';
+import statusDot from '../assets/icons/status-dot.svg';
+import smsTracking from '../assets/icons/sms-tracking.svg';
 import arrowLeft from '../assets/icons/arrow-left.svg';
+import copy from '../assets/icons/copy.svg';
+import tick from '../assets/icons/tick.svg';
 ---
 
 <!--
@@ -18,10 +20,20 @@ import arrowLeft from '../assets/icons/arrow-left.svg';
 	<div class="profile-card" tabindex="0">
 		<div class="profile-top">
 			<div class="profile-actions">
-				<button class="profile-compose" type="button" aria-expanded="false" aria-controls="profile-form">
-					<img src={smsTracking.src} width="20" height="20" alt="" />
-					Write a message
-				</button>
+				<div class="profile-buttons">
+					<button class="profile-compose" type="button" aria-expanded="false" aria-controls="profile-form">
+						<img src={smsTracking.src} width="20" height="20" alt="" />
+						Write a message
+					</button>
+					<button class="profile-copy" type="button" data-email={contact.email}>
+						<span class="profile-copy-icons" aria-hidden="true">
+							<img src={copy.src} width="20" height="20" alt="" />
+							<img src={tick.src} width="20" height="20" alt="" />
+						</span>
+						<span class="profile-copy-label">Copy email</span>
+					</button>
+					<p class="visually-hidden profile-copy-status" role="status"></p>
+				</div>
 				<ul class="profile-socials">
 					{
 						socials.map(({ label, href, icon }) => (
@@ -275,9 +287,51 @@ import arrowLeft from '../assets/icons/arrow-left.svg';
 		sendLabel.textContent = on ? 'Sending…' : 'Send message';
 	}
 
+	const copyButton = root.querySelector<HTMLButtonElement>('.profile-copy')!;
+	const copyLabel = root.querySelector<HTMLElement>('.profile-copy-label')!;
+	const copyStatus = root.querySelector<HTMLElement>('.profile-copy-status')!;
+	let copyReset: number | undefined;
+
+	// If the clipboard is off limits, the label shows the address instead, so it can still be read off.
+	copyButton.addEventListener('click', async () => {
+		const email = copyButton.dataset.email!;
+		const copied = await navigator.clipboard?.writeText(email).then(
+			() => true,
+			() => false,
+		);
+		clearTimeout(copyReset);
+		copyButton.toggleAttribute('data-copied', Boolean(copied));
+		copyLabel.textContent = copied ? 'Email copied' : email;
+		copyStatus.textContent = copied ? `Copied ${email}` : '';
+		copyReset = window.setTimeout(() => {
+			copyButton.removeAttribute('data-copied');
+			copyLabel.textContent = 'Copy email';
+			copyStatus.textContent = '';
+		}, copied ? 2000 : 6000);
+	});
+
 	compose.addEventListener('click', openForm);
 	back.addEventListener('click', close);
 	done.addEventListener('click', close);
+
+	// iOS leaves focus where it is when a tap lands on something that can't take it, so a tap on
+	// empty space wouldn't fold the card. The message form stays open until it's closed, as elsewhere.
+	document.addEventListener('pointerdown', (event) => {
+		if (root.hasAttribute('data-composing') || root.contains(event.target as Node)) return;
+		if (root.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
+	});
+
+	// A second tap on the photo folds the open card. Whether it was open is read on the way down,
+	// since by the click the tap has already focused it.
+	const avatar = root.querySelector<HTMLElement>('.profile-avatar')!;
+	let retap = false;
+	avatar.addEventListener('pointerdown', (event) => {
+		retap = event.pointerType !== 'mouse' && !root.hasAttribute('data-composing') && root.contains(document.activeElement);
+	});
+	avatar.addEventListener('click', () => {
+		if (retap) (document.activeElement as HTMLElement).blur();
+		retap = false;
+	});
 
 	root.addEventListener('keydown', (event) => {
 		if (event.key === 'Escape' && root.hasAttribute('data-composing')) close();
@@ -377,17 +431,23 @@ import arrowLeft from '../assets/icons/arrow-left.svg';
 		left: 11px;
 		bottom: 11px;
 		z-index: 10;
+		/*
+		 * The box is the open card's size even while only the avatar shows, so it lets the pointer
+		 * through; the card takes it back, and its clip-path keeps the resting hit area to the avatar.
+		 */
+		pointer-events: none;
 		filter: var(--shadow-rest);
 		transition: filter 200ms ease-out var(--close-delay);
 	}
 
-	.profile:has(.profile-card:hover, .profile-card:focus-within),
+	.profile:has(.profile-card:focus-within),
 	.profile[data-composing] {
 		filter: var(--shadow-open);
 		transition: filter 280ms var(--ease-out);
 	}
 
 	.profile-card {
+		pointer-events: auto;
 		/* Avatar box: 1px border + 12px padding from the card's bottom-left corner. */
 		--avatar-inset: 13px;
 		--avatar: 44px;
@@ -411,7 +471,6 @@ import arrowLeft from '../assets/icons/arrow-left.svg';
 		outline: none;
 	}
 
-	.profile-card:hover,
 	.profile-card:focus-within,
 	.profile[data-composing] .profile-card {
 		clip-path: inset(0 0 0 0 round var(--radius));
@@ -435,13 +494,32 @@ import arrowLeft from '../assets/icons/arrow-left.svg';
 	}
 
 	/* `none` rather than blur(0), so the open content isn't left on a filter layer. */
-	.profile-card:hover :is(.profile-top, .profile-divider, .profile-identity),
 	.profile-card:focus-within :is(.profile-top, .profile-divider, .profile-identity),
 	.profile[data-composing] :is(.profile-top, .profile-divider, .profile-identity) {
 		opacity: 1;
 		filter: none;
 		transition-duration: 250ms;
 		transition-delay: 60ms;
+	}
+
+	/* Hover opens it only with a pointer that can hover; on touch a tap's :hover sticks and holds it open. */
+	@media (hover: hover) {
+		.profile:has(.profile-card:hover) {
+			filter: var(--shadow-open);
+			transition: filter 280ms var(--ease-out);
+		}
+
+		.profile-card:hover {
+			clip-path: inset(0 0 0 0 round var(--radius));
+			transition: clip-path 280ms var(--ease-out);
+		}
+
+		.profile-card:hover :is(.profile-top, .profile-divider, .profile-identity) {
+			opacity: 1;
+			filter: none;
+			transition-duration: 250ms;
+			transition-delay: 60ms;
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -487,8 +565,15 @@ import arrowLeft from '../assets/icons/arrow-left.svg';
 		padding: 12px 12px 4px;
 	}
 
+	.profile-buttons {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
 	/* Pills, like the page's other buttons. */
 	.profile-compose,
+	.profile-copy,
 	.profile-send,
 	.profile-done {
 		display: flex;
@@ -512,12 +597,64 @@ import arrowLeft from '../assets/icons/arrow-left.svg';
 		color: #fff;
 	}
 
-	.profile-compose {
-		/* 2px less on the icon side, matching the hero button. */
+	.profile-compose,
+	.profile-copy {
+		/* 2px less on the icon side: an icon's edge reads further out than text, so equal padding looks lopsided. */
 		padding: 0 16px 0 14px;
 	}
 
-	:is(.profile-compose, .profile-send, .profile-done, .profile-back):active {
+	/* The secondary pill: the same tint the fields and hover cells use, so it sits under compose. */
+	.profile-copy {
+		background: rgb(46 46 46 / 0.06);
+		color: var(--color-text);
+	}
+
+	/* A fallback address is long; let it shrink rather than push past the card. */
+	.profile-copy-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	/* The two glyphs share one cell and cross-fade, the tick blooming in from small. */
+	.profile-copy-icons {
+		display: grid;
+		flex-shrink: 0;
+	}
+
+	.profile-copy-icons img {
+		grid-area: 1 / 1;
+		transition:
+			opacity 150ms ease-out,
+			scale 200ms var(--ease-out),
+			filter 150ms ease-out;
+	}
+
+	.profile-copy-icons img:last-child,
+	.profile-copy[data-copied] .profile-copy-icons img:first-child {
+		opacity: 0;
+		scale: 0.5;
+		filter: blur(2px);
+	}
+
+	.profile-copy[data-copied] .profile-copy-icons img:last-child {
+		opacity: 1;
+		scale: 1;
+		filter: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.profile-copy-icons img {
+			transition: opacity 150ms ease-out;
+		}
+
+		.profile-copy-icons img:last-child,
+		.profile-copy[data-copied] .profile-copy-icons img:first-child {
+			scale: 1;
+			filter: none;
+		}
+	}
+
+	:is(.profile-compose, .profile-copy, .profile-send, .profile-done, .profile-back):active {
 		scale: 0.97;
 	}
 
@@ -545,6 +682,7 @@ import arrowLeft from '../assets/icons/arrow-left.svg';
 		}
 
 		.profile-compose,
+		.profile-copy,
 		.profile-send,
 		.profile-done,
 		.profile-socials a {
@@ -559,6 +697,10 @@ import arrowLeft from '../assets/icons/arrow-left.svg';
 
 		:is(.profile-socials a, .profile-back):hover {
 			background: rgb(46 46 46 / 0.06);
+		}
+
+		.profile-copy:hover {
+			background: rgb(46 46 46 / 0.1);
 		}
 	}
 

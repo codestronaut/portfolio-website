@@ -1,0 +1,145 @@
+---
+interface Props {
+	/** A number with an optional suffix, like "6+". */
+	value: string;
+	/** Position in its row, which staggers when it starts counting. */
+	index?: number;
+}
+
+const { value, index = 0 } = Astro.props;
+const [, digits = '', suffix = value] = value.match(/^(\d+)(.*)$/) ?? [];
+---
+
+<!--
+	Each digit counts up in place with a reproduction of SwiftUI's `.blurReplace` (its default,
+	`.downUp` configuration): the old digit blurs and scales down as the new one blurs in and scales
+	up, both at once. Every value from 0 to the digit has its own face, so a digit can still be leaving
+	while the next arrives. It rests on the value, so without the script, or with reduced motion, the
+	number just sits there. The script sets the digits back to 0 and counts them up the first time the
+	number comes into view.
+-->
+<span class="counter" data-index={index} data-counter>
+	<span class="visually-hidden">{digits}</span>
+	<span class="counter-digits" aria-hidden="true">
+		{
+			[...digits].map((digit) => (
+				<span class="counter-digit">
+					{Array.from({ length: Number(digit) + 1 }, (_, n) => (
+						<span class="counter-face" data-n={n} data-active={n === Number(digit) ? '' : undefined} />
+					))}
+				</span>
+			))
+		}
+	</span>{suffix}
+</span>
+
+<script>
+	/*
+	 * SwiftUI's default animation since iOS 17: a spring with a 0.55s response and a damping fraction
+	 * of 1, so it never overshoots. A critically damped spring is x(t) = 1 - (1 + ωt)e^(-ωt), and it's
+	 * within 0.1% of rest at ωt = 9.23. Over that span the curve has the same shape for any response,
+	 * so it's sampled once into a `linear()` easing and only its duration changes.
+	 */
+	const SETTLE = 9.23;
+	const SPRING = `linear(${Array.from({ length: 41 }, (_, i) => {
+		const u = i / 40;
+		return (i === 40 ? 1 : 1 - (1 + SETTLE * u) * Math.exp(-SETTLE * u)).toFixed(4);
+	}).join(', ')})`;
+	const duration = (response: number) => (SETTLE / (2 * Math.PI)) * response * 1000;
+
+	// How far a digit blurs and shrinks while it's away. Apple doesn't publish these; they're matched
+	// by eye. The blur is in em so it holds at every size the number takes.
+	const AWAY = { opacity: 0, scale: 0.6, filter: 'blur(0.2em)' };
+	const HERE = { opacity: 1, scale: 1, filter: 'blur(0em)' };
+
+	const STAGGER = 120;
+	// The gap after the first step and before the last: they widen between, so the count starts quick
+	// and slows onto its final digit.
+	const FIRST_GAP = 110;
+	const LAST_GAP = 260;
+	// The final digit gets SwiftUI's own 0.55s spring. The steps before it run a quicker spring of the
+	// same shape, sized to their gap, so each old digit is mostly gone by the time the next one leaves.
+	const RESPONSE = 0.55;
+	const STEP_RESPONSE = (gap: number) => Math.min(RESPONSE, Math.max(0.22, (gap * 2.2) / 1000));
+
+	const gaps = (steps: number) =>
+		Array.from({ length: steps - 1 }, (_, k) => FIRST_GAP + (LAST_GAP - FIRST_GAP) * (steps > 2 ? (k / (steps - 2)) ** 2 : 1));
+
+	// The old digit leaves and the new one arrives at the same time, on the same spring.
+	const replace = (digit: HTMLElement, n: number, response: number) => {
+		const faces = digit.querySelectorAll<HTMLElement>('.counter-face');
+		const timing = { duration: duration(response), easing: SPRING };
+		faces[n - 1].removeAttribute('data-active');
+		faces[n].setAttribute('data-active', '');
+		faces[n - 1].animate([HERE, AWAY], timing);
+		faces[n].animate([AWAY, HERE], timing);
+	};
+
+	const count = (counter: HTMLElement) => {
+		const delay = Number(counter.dataset.index) * STAGGER;
+		for (const digit of counter.querySelectorAll<HTMLElement>('.counter-digit')) {
+			const steps = digit.childElementCount - 1;
+			const between = gaps(steps);
+			let at = delay;
+			for (let n = 1; n <= steps; n++) {
+				const gap = between[n - 1];
+				setTimeout(() => replace(digit, n, gap === undefined ? RESPONSE : STEP_RESPONSE(gap)), at);
+				at += gap ?? 0;
+			}
+		}
+	};
+
+	// Counts once the whole number sits in the upper 80% of the screen, by which point the scroll
+	// reveal has finished fading the row in.
+	if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (!entry.isIntersecting) continue;
+					count(entry.target as HTMLElement);
+					observer.unobserve(entry.target);
+				}
+			},
+			{ rootMargin: '0px 0px -20% 0px', threshold: 1 },
+		);
+
+		// Straight to 0, so nothing animates on the way down.
+		for (const counter of document.querySelectorAll<HTMLElement>('[data-counter]')) {
+			for (const digit of counter.querySelectorAll<HTMLElement>('.counter-digit')) {
+				const faces = digit.querySelectorAll('.counter-face');
+				faces.forEach((face, n) => face.toggleAttribute('data-active', n === 0));
+			}
+			observer.observe(counter);
+		}
+	}
+</script>
+
+<style>
+	.counter-digits {
+		display: inline-flex;
+	}
+
+	/* The faces share one cell; equal-width figures keep the number from changing width as it counts. */
+	.counter-digit {
+		display: inline-grid;
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* The script animates each change; at rest only the active face shows. */
+	.counter-face {
+		grid-area: 1 / 1;
+		opacity: 0;
+	}
+
+	.counter-face[data-active] {
+		opacity: 1;
+	}
+
+	/*
+	 * The digit is drawn from an attribute rather than written into the page, so copying the number
+	 * or reading the page's text gives "6+", not every digit it counted through.
+	 */
+	.counter-face::before {
+		content: attr(data-n);
+	}
+</style>

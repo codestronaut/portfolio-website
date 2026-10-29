@@ -11,9 +11,10 @@ import { projects } from '../data/portfolio';
 const groups = [
 	// Each card sits 12 units outside its group, top-aligned with the logo. The card is
 	// 280px wide, and these side positions only apply at widths where a unit is 1px.
-	{ project: 'tribel', phone: [396, 178.06], logo: [710, 452], card: [847, 452] },
-	{ project: 'hoppr', phone: [253.49, 0], logo: [347, 44], card: [717, 44] },
-	{ project: 'paglyph', phone: [0, 177.7], logo: [46, 335], card: [-246, 335] },
+	// `fan` is how far, in units, the group drifts as the hero scrolls away.
+	{ project: 'tribel', phone: [396, 178.06], logo: [710, 452], card: [847, 452], fan: [28, 10] },
+	{ project: 'hoppr', phone: [253.49, 0], logo: [347, 44], card: [717, 44], fan: [0, -18] },
+	{ project: 'paglyph', phone: [0, 177.7], logo: [46, 335], card: [-246, 335], fan: [-28, 10] },
 ] as const;
 ---
 
@@ -21,9 +22,9 @@ const groups = [
 	<div class="stage">
 		{
 			groups.map((group) => {
-				const { project, phone, logo } = group;
+				const { project, phone, logo, fan } = group;
 				return (
-					<div class="group">
+					<div class="group" style={`--fan-x: ${fan[0]}; --fan-y: ${fan[1]}`}>
 						<div class="item" style={`--x: ${logo[0]}; --y: ${logo[1]}`}>
 							<ProjectLogo project={project} size="large" />
 						</div>
@@ -156,6 +157,30 @@ const groups = [
 	@media (hover: hover) {
 		.hero-phones:hover .item {
 			will-change: filter;
+		}
+	}
+
+	/*
+	 * As the hero scrolls away the phones fan out, each group drifting its own way, tied 1:1 to the
+	 * scroll so scrolling back folds them in again. It runs on `transform`, which stacks with the
+	 * hover lift on `translate`. The hit areas, the hover-intent layer and the card move with their
+	 * phone so hovering stays lined up; the hotspot itself stays put, since transforming it would
+	 * give it a stacking context and trap its card under the next group's hit areas.
+	 */
+	@supports (animation-timeline: scroll()) {
+		@media (prefers-reduced-motion: no-preference) {
+			.item,
+			.group :global(:is(.hit, .safe, .card)) {
+				animation: fan linear both;
+				animation-timeline: scroll(root);
+				animation-range: 0 70vh;
+			}
+		}
+	}
+
+	@keyframes fan {
+		to {
+			transform: translate(calc(var(--fan-x) * var(--u)), calc(var(--fan-y) * var(--u)));
 		}
 	}
 

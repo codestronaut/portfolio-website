@@ -1,22 +1,24 @@
 ---
-import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import HeroPhones from '../components/HeroPhones.astro';
 import ProjectLogo from '../components/ProjectLogo.astro';
+import Counter from '../components/Counter.astro';
+import Dither from '../components/Dither.astro';
 import Profile from '../components/Profile.astro';
 import Testimonials from '../components/Testimonials.astro';
-import { achievements, contact, experience, profile, tools } from '../data/portfolio';
+import Tools from '../components/Tools.astro';
+import { achievements, contact, experience, profile } from '../data/portfolio';
 
-import smsTracking from '../assets/figma/sms-tracking.svg';
-import arrowUpRight from '../assets/figma/arrow-up-right.svg';
-import arrowUp from '../assets/figma/arrow-up.svg';
-import flagIndonesia from '../assets/figma/flag-indonesia.svg';
-import currentDot from '../assets/figma/dot.svg';
+import arrowUpRight from '../assets/icons/arrow-up-right.svg';
+import arrowUp from '../assets/icons/arrow-up.svg';
+import flagIndonesia from '../assets/icons/flags/ID.svg';
+import currentDot from '../assets/icons/dot.svg';
 ---
 
 <Layout>
 	<main id="top">
 		<section class="hero">
+			<Dither variant="ink" />
 			<div class="hero-intro">
 				<h1 class="hero-title">
 					<span class="hero-title-first">
@@ -31,8 +33,7 @@ import currentDot from '../assets/figma/dot.svg';
 					<span class="hero-title-line">I move fast, while ensuring the highest level of craft,</span>
 					<span class="hero-title-line">attention to detail, and performance.</span>
 				</h1>
-				<a class="button button--dark" href="#contact">
-					<img src={smsTracking.src} width={smsTracking.width} height={smsTracking.height} alt="" />
+				<a class="button button--dark" href={contact.booking} target="_blank" rel="noopener noreferrer">
 					Get in touch
 				</a>
 			</div>
@@ -40,13 +41,15 @@ import currentDot from '../assets/figma/dot.svg';
 		</section>
 
 		<div class="content">
-			<section class="achievements" aria-label="Achievements">
+			<section class="achievements reveal" aria-label="Achievements">
 				{
 					achievements.map(({ value, label }, i) => (
 						<>
 							{i > 0 && <div class="achievements-divider" />}
 							<div class="achievement">
-								<p class="achievement-value">{value}</p>
+								<p class="achievement-value">
+									<Counter value={value} index={i} />
+								</p>
 								<p class="achievement-label">{label}</p>
 							</div>
 						</>
@@ -59,7 +62,7 @@ import currentDot from '../assets/figma/dot.svg';
 				<ol class="experience">
 					{
 						experience.map(({ period, role, company, current }) => (
-							<li class="experience-row">
+							<li class="experience-row reveal">
 								<p class="experience-period">
 									{current && (
 										<img
@@ -84,24 +87,14 @@ import currentDot from '../assets/figma/dot.svg';
 
 			<section class="stack" aria-labelledby="tools-label">
 				<h2 class="section-label" id="tools-label">Tools I use</h2>
-				<ul class="tools">
-					{
-						tools.map(({ name, icon, crop }) => (
-							<li class="tool">
-								<span class:list={['tool-icon', { 'tool-icon--crop': crop }]}>
-									<Image src={icon} alt="" width={28} densities={[1, 2, 3]} />
-								</span>
-								{name}
-							</li>
-						))
-					}
-				</ul>
+				<Tools />
 			</section>
 
 			<section class="stack" id="contact" aria-labelledby="cta-title">
-				<div class="cta">
+				<div class="cta reveal">
+					<Dither variant="gradient" />
 					<h2 class="cta-title" id="cta-title">Have something<br />worth building?</h2>
-					<a class="button button--light" href={`mailto:${contact.email}`}>
+					<a class="button button--light" href={contact.booking} target="_blank" rel="noopener noreferrer">
 						Say hello
 						<img src={arrowUpRight.src} width={arrowUpRight.width} height={arrowUpRight.height} alt="" />
 					</a>
@@ -110,7 +103,7 @@ import currentDot from '../assets/figma/dot.svg';
 					<p>© 2026 {profile.name}</p>
 					<p class="footer-built">
 						Built in Lombok
-						<img src={flagIndonesia.src} width={flagIndonesia.width} height={flagIndonesia.height} alt="Indonesia" />
+						<img class="flag" src={flagIndonesia.src} width="18" height="12" alt="Indonesia" />
 						for a global audience
 					</p>
 					<a class="footer-top" href="#top">
@@ -125,6 +118,23 @@ import currentDot from '../assets/figma/dot.svg';
 	<Profile />
 </Layout>
 
+<script>
+	// The CTA's glow settles into place the first time half the box is on screen. The script holds
+	// it at its starting point until then, so without it, or with reduced motion, the glow just rests.
+	const cta = document.querySelector<HTMLElement>('.cta');
+	if (cta && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		cta.setAttribute('data-armed', '');
+		new IntersectionObserver(
+			([entry], observer) => {
+				if (!entry.isIntersecting) return;
+				cta.removeAttribute('data-armed');
+				observer.disconnect();
+			},
+			{ threshold: 0.5 },
+		).observe(cta);
+	}
+</script>
+
 <style>
 	main {
 		padding: 64px var(--gutter);
@@ -133,9 +143,23 @@ import currentDot from '../assets/figma/dot.svg';
 	/* Hero */
 
 	.hero {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: clamp(56px, 28.26px + 7.396vw, 104px);
+	}
+
+	/*
+	 * The hero's dither reaches out over the page's padding to the window's edges and up to the top,
+	 * so the spotlight is never cut off by the content column, and fades out over the hero's last
+	 * 160px so it doesn't end in a straight line. It sits under the title, button and phones.
+	 */
+	.hero :global(.dither) {
+		top: -64px;
+		left: calc(-1 * var(--gutter));
+		width: calc(100% + 2 * var(--gutter));
+		height: calc(100% + 64px);
+		mask-image: linear-gradient(#000 calc(100% - 160px), transparent);
 	}
 
 	.hero-intro {
@@ -217,10 +241,8 @@ import currentDot from '../assets/figma/dot.svg';
 		scale: 0.97;
 	}
 
-	/* 2px less on the icon side: an icon's edge reads further out than text, so equal padding looks lopsided. */
 	.button--dark {
-		gap: 8px;
-		padding: 14px 16px 14px 14px;
+		padding: 14px 28px;
 		background: #000;
 		color: #fff;
 	}
@@ -384,60 +406,12 @@ import currentDot from '../assets/figma/dot.svg';
 		}
 	}
 
-	/* Tools */
-
-	.tools {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 20px;
-	}
-
-	.tool {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		font-size: var(--text-body);
-		white-space: nowrap;
-	}
-
-	.tool-icon {
-		position: relative;
-		flex-shrink: 0;
-		width: 28px;
-		height: 28px;
-		overflow: hidden;
-		border-radius: 7px;
-	}
-
-	.tool-icon::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		border: 1px solid var(--color-hairline);
-		border-radius: inherit;
-	}
-
-	.tool-icon img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-
-	.tool-icon--crop img {
-		width: 106.67%;
-		height: 106.67%;
-		margin: -3.33%;
-	}
-
-	@media (max-width: 640px) {
-		.tools {
-			gap: 14px 18px;
-		}
-	}
-
 	/* CTA + footer */
 
+	/* Isolated, so the gradient layer below can sit behind the title and button but inside the box. */
 	.cta {
+		position: relative;
+		isolation: isolate;
 		display: flex;
 		align-items: flex-end;
 		justify-content: space-between;
@@ -446,6 +420,20 @@ import currentDot from '../assets/figma/dot.svg';
 		padding: 32px;
 		border-radius: 20px;
 		overflow: hidden;
+	}
+
+	/*
+	 * The gradient lives on its own layer so it can move on `transform` alone, without repainting
+	 * the box every frame. The first time the box comes into view, the glow starts spread wide (its
+	 * deep blue core filling the box) and settles back into its corner, opening the paler blues up
+	 * around it. Scaled from the glow's own centre, and only nudged as far as keeps every edge of the
+	 * layer outside the box, so no corner shows through.
+	 */
+	.cta::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: -1;
 		background: radial-gradient(
 			93% 105.16% at 26.11% 13.59%,
 			#4988c4 0%,
@@ -453,6 +441,23 @@ import currentDot from '../assets/figma/dot.svg';
 			#a9cce3 75%,
 			#d8e6f3 100%
 		);
+		transform-origin: 26.11% 13.59%;
+		/*
+		 * A one-off moment, so it takes its time. A gentle ease-out cubic rather than a sharp one: it
+		 * starts at once but spreads the settle across the duration instead of spending it up front.
+		 */
+		transition: transform 1600ms cubic-bezier(0.33, 1, 0.68, 1);
+	}
+
+	.cta[data-armed]::before {
+		transform: translate(10%, 8%) scale(1.8);
+		transition: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cta::before {
+			transition: none;
+		}
 	}
 
 	.cta-title {

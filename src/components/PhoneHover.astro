@@ -58,6 +58,14 @@ const cardId = `phone-card-${project}`;
 		return [...lower.slice(0, -1), ...upper.slice(0, -1)];
 	}
 
+	// iOS leaves focus where it is when a tap lands on something that can't take it, so a tap on
+	// empty space wouldn't close the card. Tapping another phone still moves focus on its own.
+	document.addEventListener('pointerdown', (event) => {
+		const active = document.activeElement as HTMLElement | null;
+		const open = active?.closest('.hotspot');
+		if (open && !open.contains(event.target as Node)) active!.blur();
+	});
+
 	for (const hotspot of document.querySelectorAll<HTMLElement>('.hotspot')) {
 		const card = hotspot.querySelector<HTMLElement>('.card')!;
 		const safe = hotspot.querySelector<HTMLElement>('.safe')!;
@@ -106,6 +114,20 @@ const cardId = `phone-card-${project}`;
 		});
 
 		hotspot.addEventListener('pointerleave', disarm);
+
+		// A second tap on the phone or logo of the open project closes it again. Whether it was open
+		// is read on the way down, since by the click the tap has already focused it.
+		let retap = false;
+		hotspot.addEventListener('pointerdown', (event) => {
+			retap =
+				event.pointerType !== 'mouse' &&
+				hotspot.contains(document.activeElement) &&
+				Boolean((event.target as Element).closest('.hit'));
+		});
+		hotspot.addEventListener('click', () => {
+			if (retap) (document.activeElement as HTMLElement).blur();
+			retap = false;
+		});
 	}
 </script>
 
