@@ -1,5 +1,6 @@
 ---
 import ProjectLogo from './ProjectLogo.astro';
+import ArrowUpRight from '../assets/icons/arrow-up-right.svg';
 import { projects, type ProjectId } from '../data/portfolio';
 
 type Point = readonly [number, number];
@@ -13,7 +14,12 @@ interface Props {
 }
 
 const { project, phone, logo, card } = Astro.props;
-const { name, kind, description } = projects[project];
+const { name, kind, description, timeline, platforms, role, link } = projects[project];
+const details = [
+	['Timeline', timeline],
+	['Platform', platforms.join(', ')],
+	['Role', role],
+];
 const cardId = `phone-card-${project}`;
 ---
 
@@ -35,6 +41,20 @@ const cardId = `phone-card-${project}`;
 			<span class:list={['card-tag', `card-tag--${kind.toLowerCase()}`]}>{kind}</span>
 		</div>
 		<p class="card-description">{description}</p>
+		<dl class="card-details">
+			{
+				details.map(([label, value]) => (
+					<div class="card-detail">
+						<dt>{label}</dt>
+						<dd>{value}</dd>
+					</div>
+				))
+			}
+		</dl>
+		<a class="card-link" href={link.href} target="_blank" rel="noopener noreferrer">
+			{link.label}
+			<ArrowUpRight width={16} height={16} aria-hidden="true" />
+		</a>
 	</div>
 </div>
 
@@ -360,5 +380,72 @@ const cardId = `phone-card-${project}`;
 		font-size: 15px;
 		line-height: 1.4;
 		color: var(--color-text-muted);
+	}
+
+	/* Rows share the list's columns through subgrid, so every value starts at the same edge. */
+	.card-details {
+		display: grid;
+		grid-template-columns: max-content minmax(0, 1fr);
+		column-gap: 12px;
+		font-size: 14px;
+		line-height: 20px;
+	}
+
+	.card-detail {
+		display: grid;
+		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
+		padding-block: 8px;
+		border-top: 1px solid var(--color-divider);
+	}
+
+	.card-detail:last-child {
+		padding-bottom: 0;
+	}
+
+	.card-detail dt {
+		color: var(--color-text-subtle);
+	}
+
+	.card-detail dd {
+		margin: 0;
+		font-weight: 600;
+	}
+
+	.card-link {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		height: 40px;
+		margin-top: 4px;
+		border-radius: 999px;
+		background: #000;
+		color: #fff;
+		font-size: 15px;
+		font-weight: 600;
+		transition:
+			background-color 150ms ease-out,
+			scale 120ms ease-out;
+	}
+
+	/* The icon is drawn in the page's text colour; on the dark button it follows the label instead. */
+	.card-link :global(path) {
+		stroke: currentColor;
+	}
+
+	.card-link:active {
+		scale: 0.97;
+	}
+
+	.card-link:focus-visible {
+		outline: 2px solid #4988c4;
+		outline-offset: 2px;
+	}
+
+	@media (hover: hover) {
+		.card-link:hover {
+			background: #2e2e2e;
+		}
 	}
 </style>

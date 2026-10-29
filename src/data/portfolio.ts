@@ -41,6 +41,10 @@ export interface Project {
 	name: string;
 	kind: 'Personal' | 'Client';
 	description: string;
+	timeline: string;
+	platforms: string[];
+	role: string;
+	link: { href: string; label: string };
 	mockup: ImageMetadata;
 }
 
@@ -49,7 +53,12 @@ export const projects: Record<ProjectId, Project> = {
 		id: 'paglyph',
 		name: 'Paglyph',
 		kind: 'Personal',
-		description: 'A vocabulary companion for people who read in English, especially non-native speakers.',
+		description:
+			"A word lookup and vocabulary companion for people who read in English. For novels, textbooks, and whatever you're reading next.",
+		timeline: 'Aug 2026 – Now',
+		platforms: ['iOS'],
+		role: 'Product Engineer',
+		link: { href: 'https://www.paglyph.app/', label: 'Visit website' },
 		mockup: phonePaglyph,
 	},
 	hoppr: {
@@ -58,6 +67,10 @@ export const projects: Record<ProjectId, Project> = {
 		kind: 'Personal',
 		description:
 			'An AI-powered trip planner that generates personalized itineraries. Built as the final project for the CodeWithChris+ iOS course.',
+		timeline: 'May 2026',
+		platforms: ['iOS'],
+		role: 'iOS Developer',
+		link: { href: 'https://github.com/rainforelabs/hoppr', label: 'View on GitHub' },
 		mockup: phoneHoppr,
 	},
 	tribel: {
@@ -66,6 +79,10 @@ export const projects: Record<ProjectId, Project> = {
 		kind: 'Client',
 		description:
 			'Turns saved travel inspiration from Pinterest, Instagram, and blogs into categorized, shareable plans for nomads and remote teams.',
+		timeline: 'Jan 2025 – Mar 2026',
+		platforms: ['Android', 'iOS'],
+		role: 'Founding Mobile Engineer',
+		link: { href: 'https://trytribel.app/landing', label: 'Visit website' },
 		mockup: phoneTribel,
 	},
 };

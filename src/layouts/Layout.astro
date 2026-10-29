@@ -11,6 +11,10 @@ const {
 	title = 'Aditya Rohman — Design Engineer',
 	description = 'I design, build, and ship mobile apps. I move fast, while ensuring the highest level of craft, attention to detail, and performance.',
 } = Astro.props;
+
+// Crawlers need absolute URLs. No `site` is configured, so take the origin the page was served from.
+const pageUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+const ogImage = new URL('/og.jpg', pageUrl);
 ---
 
 <!doctype html>
@@ -20,8 +24,23 @@ const {
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="description" content={description} />
 		<meta name="theme-color" content="#f9f8f6" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
+		<link rel="icon" href="/favicon.ico" sizes="48x48" />
+		<link rel="icon" type="image/png" href="/favicon.png" sizes="192x192" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="canonical" href={pageUrl} />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Aditya Rohman" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={pageUrl} />
+		<meta property="og:image" content={ogImage} />
+		<meta property="og:image:type" content="image/jpeg" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="Aditya Rohman, Design Engineer. I design, build, and ship mobile apps." />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@adityarhmaan_" />
+		<meta name="twitter:creator" content="@adityarhmaan_" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
 	</head>
