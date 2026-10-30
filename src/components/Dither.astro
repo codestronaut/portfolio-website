@@ -21,7 +21,7 @@ const { variant } = Astro.props;
 	// In CSS pixels: the size of a dither cell, and how far from the cursor the dither reaches. The
 	// ink's cells are a little finer, so it reads as a texture on the page.
 	const CELL: Record<Variant, number> = { gradient: 4, ink: 3 };
-	const RADIUS: Record<Variant, number> = { gradient: 180, ink: 260 };
+	const RADIUS: Record<Variant, number> = { gradient: 260, ink: 260 };
 	// How quickly the patch catches up with the cursor, and fades in and out; higher is snappier. The
 	// ink trails and fades a touch more gently.
 	const FOLLOW: Record<Variant, number> = { gradient: 14, ink: 11 };
