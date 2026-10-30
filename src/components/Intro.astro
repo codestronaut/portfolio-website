@@ -1,0 +1,226 @@
+---
+import ProjectLogo from './ProjectLogo.astro';
+import type { ProjectId } from '../data/portfolio';
+
+// In the hero's order, so each tile flies to its own place in the title.
+const logos: ProjectId[] = ['tribel', 'hoppr', 'paglyph'];
+---
+
+<!--
+	A splash that plays every time the site opens: the three app tiles arrive with a short hello, then
+	fly into their places in the hero's title as the page fades in. It's decorative, so it's hidden
+	from assistive tech, and any click, key or scroll cuts it short. It only shows when the script
+	below sets `data-intro` on <html>, so without JavaScript, with reduced motion, or on a link to a
+	section, the page is just there.
+-->
+<script is:inline>
+	if (!location.hash && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		document.documentElement.setAttribute('data-intro', '');
+		// A reload would otherwise put the page back where it was, with the hero's tiles off screen.
+		history.scrollRestoration = 'manual';
+	}
+</script>
+
+<div class="intro" aria-hidden="true" data-intro-splash>
+	<div class="intro-logos">
+		{logos.map((project) => <ProjectLogo project={project} size="large" class="intro-logo" />)}
+	</div>
+	<p class="intro-hello">Hi, I’m Aditya.</p>
+	<p class="intro-line">A design engineer in Lombok, Indonesia, shipping mobile apps since 2021.</p>
+</div>
+
+<script>
+	// How long the splash holds before it leaves on its own, counted from when it starts.
+	const HOLD = 1900;
+
+	const root = document.documentElement;
+	const splash = document.querySelector<HTMLElement>('[data-intro-splash]');
+
+	if (splash && root.hasAttribute('data-intro')) {
+		const from = [...splash.querySelectorAll<HTMLElement>('.intro-logo')];
+		const to = [...document.querySelectorAll<HTMLElement>('.hero-logo')];
+		const words = [...splash.querySelectorAll<HTMLElement>('.intro-hello, .intro-line')];
+		let left = false;
+
+		const leave = async () => {
+			if (left) return;
+			left = true;
+			clearTimeout(timer);
+			removeEventListener('pointerdown', leave);
+			removeEventListener('wheel', skip);
+			removeEventListener('keydown', skip);
+
+			/*
+			 * The hello steps aside first, quicker and quieter than it arrived, so the tiles are all that
+			 * travel and its words never crossfade with the title's. With no `from` keyframe it leaves from
+			 * wherever it is, even if it's cut short while still rising in.
+			 */
+			await Promise.all(
+				words.map(
+					(word) =>
+						word.animate(
+							{ opacity: 0, filter: 'blur(2px)', translate: '0 -6px' },
+							{ duration: 160, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'forwards' },
+						).finished,
+				),
+			);
+
+			/*
+			 * Where view transitions are supported, each splash tile shares a name with its hero tile, so
+			 * the browser carries it from one to the other while the rest crossfades. The names move to
+			 * the hero tiles inside the update, since both sets are on screen until the splash is gone.
+			 */
+			if (document.startViewTransition && from.length === to.length) {
+				from.forEach((logo, i) => (logo.style.viewTransitionName = `intro-logo-${i}`));
+				root.setAttribute('data-intro-morph', '');
+				const transition = document.startViewTransition(() => {
+					root.removeAttribute('data-intro');
+					from.forEach((logo) => (logo.style.viewTransitionName = ''));
+					to.forEach((logo, i) => (logo.style.viewTransitionName = `intro-logo-${i}`));
+				});
+				transition.finished.finally(() => {
+					root.removeAttribute('data-intro-morph');
+					to.forEach((logo) => (logo.style.viewTransitionName = ''));
+				});
+				return;
+			}
+
+			root.setAttribute('data-intro', 'leaving');
+			splash.addEventListener('transitionend', () => root.removeAttribute('data-intro'), { once: true });
+		};
+
+		// The input that skips it shouldn't also scroll the page out from under the tiles' landing spots.
+		const skip = (event: Event) => {
+			if (event instanceof KeyboardEvent && (event.metaKey || event.ctrlKey || event.altKey)) return;
+			event.preventDefault();
+			leave();
+		};
+
+		const timer = setTimeout(leave, HOLD);
+		addEventListener('pointerdown', leave);
+		addEventListener('wheel', skip, { passive: false });
+		addEventListener('keydown', skip);
+	}
+</script>
+
+<style>
+	.intro {
+		display: none;
+	}
+
+	:global(html[data-intro]) .intro {
+		position: fixed;
+		inset: 0;
+		z-index: 100;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: var(--gutter);
+		background: var(--color-bg);
+		text-align: center;
+		/* Taps land here instead of panning the page underneath. */
+		touch-action: none;
+		user-select: none;
+		transition: opacity 250ms var(--ease-out);
+	}
+
+	/* Without view transitions, the splash just fades off the page. */
+	:global(html[data-intro='leaving']) .intro {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	/* Overlapping and tilted the same way as the hero's tiles, at nearly twice their size. */
+	.intro-logos {
+		display: flex;
+		margin-bottom: 32px;
+	}
+
+	.intro-logos :global(.intro-logo) {
+		--logo-size: 72px;
+		animation: intro-tile 600ms var(--ease-out) both;
+	}
+
+	.intro-logos :global(.intro-logo:nth-child(2)) {
+		animation-delay: 90ms;
+	}
+
+	.intro-logos :global(.intro-logo:nth-child(3)) {
+		animation-delay: 180ms;
+	}
+
+	.intro-logos :global(.intro-logo:not(:last-child)) {
+		margin-right: -14px;
+	}
+
+	.intro-logos :global(.intro-logo:nth-child(odd)) {
+		rotate: -2deg;
+	}
+
+	.intro-logos :global(.intro-logo:nth-child(even)) {
+		rotate: 2deg;
+	}
+
+	.intro-hello {
+		font-size: var(--text-display);
+		font-weight: 600;
+		line-height: 1.2;
+		letter-spacing: var(--tracking-display);
+		animation: intro-text 500ms var(--ease-out) 280ms both;
+	}
+
+	.intro-line {
+		max-width: 34ch;
+		margin-top: 8px;
+		font-size: var(--text-body);
+		color: var(--color-text-muted);
+		text-wrap: balance;
+		animation: intro-text 500ms var(--ease-out) 380ms both;
+	}
+
+	@keyframes intro-tile {
+		from {
+			opacity: 0;
+			filter: blur(4px);
+			scale: 0.8;
+			translate: 0 12px;
+		}
+	}
+
+	/* The same rise and sharpen as the page's scroll reveal. */
+	@keyframes intro-text {
+		from {
+			opacity: 0;
+			filter: blur(2px);
+			translate: 0 8px;
+		}
+	}
+
+	/*
+	 * The tiles are already on screen, so they ease in and out rather than shooting off: a short,
+	 * soft start, then a long settle so they land softly. They lift off in the order they arrived.
+	 * The page fades in a beat behind them on a gentler curve, so they're most of the way there
+	 * before it fills in around them; its old and new layers share one timing, or the crossfade
+	 * would dip.
+	 */
+	:global(html[data-intro-morph]::view-transition-group(*)) {
+		animation-duration: 600ms;
+		animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
+	}
+
+	:global(html[data-intro-morph]::view-transition-group(intro-logo-1)) {
+		animation-delay: 30ms;
+	}
+
+	:global(html[data-intro-morph]::view-transition-group(intro-logo-2)) {
+		animation-delay: 60ms;
+	}
+
+	:global(html[data-intro-morph]::view-transition-old(root)),
+	:global(html[data-intro-morph]::view-transition-new(root)) {
+		animation-duration: 420ms;
+		animation-delay: 180ms;
+		animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+	}
+</style>

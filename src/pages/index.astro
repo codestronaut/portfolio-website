@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import HeroPhones from '../components/HeroPhones.astro';
+import Intro from '../components/Intro.astro';
 import ProjectLogo from '../components/ProjectLogo.astro';
 import Counter from '../components/Counter.astro';
 import Dither from '../components/Dither.astro';
@@ -16,6 +17,8 @@ import currentDot from '../assets/icons/dot.svg';
 ---
 
 <Layout>
+	<Intro />
+
 	<main id="top">
 		<section class="hero">
 			<Dither variant="ink" />
