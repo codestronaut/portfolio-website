@@ -5,6 +5,8 @@ import cloudflare from '@astrojs/cloudflare';
 
 // https://astro.build/config
 export default defineConfig({
+	// Prerendered pages are built on localhost, so canonical and Open Graph URLs need the real origin.
+	site: 'https://aditya.rainforelabs.com',
 	adapter: cloudflare(),
 	env: {
 		schema: {
