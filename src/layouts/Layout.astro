@@ -12,7 +12,7 @@ const {
 	description = 'I design, build, and ship mobile apps. I move fast, while ensuring the highest level of craft, attention to detail, and performance.',
 } = Astro.props;
 
-// Crawlers need absolute URLs. No `site` is configured, so take the origin the page was served from.
+// Crawlers need absolute URLs, so resolve against `site` from astro.config.
 const pageUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
 const ogImage = new URL('/og.jpg', pageUrl);
 ---
